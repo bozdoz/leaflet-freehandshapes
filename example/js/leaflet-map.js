@@ -1,4 +1,4 @@
-var baseURL = '//{s}.tile.osm.org/{z}/{x}/{y}.png',
+var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     base = L.tileLayer( baseURL, {
             subdomains : 'abc'
         }),
