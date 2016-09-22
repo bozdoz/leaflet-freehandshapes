@@ -1,0 +1,36 @@
+{
+  "name": "leaflet.freehandshapes",
+  "version": "0.1.0",
+  "description": "Refactored Leaflet shape drawing plugin, forked from https://github.com/Wildhoney/Leaflet.FreeDraw",
+  "main": "dist/leaflet.freehandshapes.js",
+  "authors": [
+    "Benjamin J DeLong <bdelong@alces.ca>",
+    "Adam Timberlake <adam.timberlake@gmail.com>"
+  ],
+  "keywords": [
+    "leaflet",
+    "freehandshapes",
+    "polygon",
+    "drawing",
+    "freehand"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/bozdoz/Leaflet.FreeHandShapes",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "d3": "3.5.14",
+    "leaflet": "0.7.7",
+    "graham_scan": "1.0.4",
+    "concavehull": "~0.1.5",
+    "evispa-timo-jsclipper": "*"
+  },
+  "devDependencies": {
+    "dat.gui": "*"
+  }
+}
