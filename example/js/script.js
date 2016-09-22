@@ -1,16 +1,14 @@
 var map = require('./leaflet-map'),
     one = new L.FreeHandShapes({
         polygon: {
-            color: '#111',
-            fillColor: '#911',
+            color: '#911',
             fillOpacity : 1,
             weight:2
         }
     }),
     two = new L.FreeHandShapes({
         polygon: {
-            color: '#111',
-            fillColor: '#191',
+            color: '#191',
             fillOpacity : 1,
             weight:2
         }

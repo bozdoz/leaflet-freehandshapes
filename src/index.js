@@ -1,93 +1,26 @@
 var Memory = require('./Memory'),
-    Hull = require('./Hull');
-
-L.Map.mergeOptions({
-  touchExtend: true
-});
-
-L.Map.TouchExtend = L.Handler.extend({
-
-  initialize: function (map) {
-    this._map = map;
-    this._container = map._container;
-    this._pane = map._panes.overlayPane;
-  },
-
-  addHooks: function () {
-    L.DomEvent.on(this._container, 'touchstart', this._onTouchStart, this);
-    L.DomEvent.on(this._container, 'touchmove', this._onTouchMove, this);
-    L.DomEvent.on(this._container, 'touchend', this._onTouchEnd, this);
-  },
-
-  removeHooks: function () {
-    L.DomEvent.off(this._container, 'touchstart', this._onTouchStart);
-    L.DomEvent.on(this._container, 'touchmove', this._onTouchMove, this);
-    L.DomEvent.off(this._container, 'touchend', this._onTouchEnd);
-  },
-
-  _onTouchStart: function (e) {
-    if (!this._map._loaded) { return; }
-
-    var type = 'touchstart',
-        touch = e.touches[0],
-        rect = this._container.getBoundingClientRect(),
-        x = touch.clientX - rect.left - this._container.clientLeft,
-        y = touch.clientY - rect.top - this._container.clientTop,
-        containerPoint = L.point(x, y),
-        layerPoint = this._map.containerPointToLayerPoint(containerPoint);
-        latlng = this._map.containerPointToLatLng(containerPoint);
-
-    this._map.fire(type, {
-      latlng: latlng,
-      layerPoint: layerPoint,
-      containerPoint : containerPoint,
-      originalEvent: e
-    });
-  },
-
-  _onTouchMove: function (e) {
-    if (!this._map._loaded || !e.changedTouches.length) { 
-        return; 
-    }
-
-    var type = 'touchmove',
-        touch = e.changedTouches[0],
-        rect = this._container.getBoundingClientRect(),
-        x = touch.clientX - rect.left - this._container.clientLeft,
-        y = touch.clientY - rect.top - this._container.clientTop,
-        containerPoint = L.point(x, y),
-        layerPoint = this._map.containerPointToLayerPoint(containerPoint);
-        latlng = this._map.containerPointToLatLng(containerPoint);
-
-    this._map.fire(type, {
-      latlng: latlng,
-      layerPoint: layerPoint,
-      containerPoint : containerPoint,
-      originalEvent: e
-    });
-  },
-
-  _onTouchEnd: function (e) {
-    if (!this._map._loaded) { return; }
-
-    var type = 'touchend';
-
-    this._map.fire(type, {
-      originalEvent: e
-    });
-  }
-});
-L.Map.addInitHook('addHandler', 'touchExtend', L.Map.TouchExtend);
+    Hull = require('./Hull'),
+    touch_extend = require('./leaflet-touch-extend');
 
 L.FreeHandShapes = L.FeatureGroup.extend({
-    statics : {
-        RECOUNT_TIMEOUT: 1,    
+    statics: {
+        RECOUNT_TIMEOUT: 1,
+        MODES: {
+            NONE: 0,
+            VIEW: 1,
+            CREATE: 2,
+            EDIT: 4,
+            DELETE: 8,
+            APPEND: 16,
+            EDIT_APPEND: 4 | 16,
+            ALL: 1 | 2 | 4 | 8 | 16
+        }
     },
 
     options: {
-        polygon : {
-            className : 'leaflet-free-hand-shapes',
-            smoothFactor : 5
+        polygon: {
+            className: 'leaflet-free-hand-shapes',
+            smoothFactor: 5
         },
         multiplePolygons: true,
         simplifyPolygon: true,
@@ -107,7 +40,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         onlyInDistance: false,
     },
 
-    initialize: function (options) {
+    initialize: function(options) {
 
         if (typeof d3 === 'undefined') {
             // Ensure D3 has been included.
@@ -141,7 +74,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    onAdd: function (map) {
+    onAdd: function(map) {
         var _this = this;
 
         this.map = map;
@@ -184,42 +117,26 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             .addEventListener('mouseleave', this.mouseUpLeave.bind(this));
 
         this.d3map = d3.select(this.map._container);
-/*        this.d3map.on('touchstart', function () {
-            _this.touchStart.bind(_this, d3.touches(this));
-        });
-        this.d3map.on('touchmove', function () {
-            _this.touchMove.bind(_this, d3.touches(this));
-        });
-        this.d3map.on('touchend', this.mouseUpLeave.bind(this));*/
 
         // Set the default mode.
         this.setMode(this.mode);
 
     },
 
-    /**
-     * @method onRemove
-     * @return {void}
-     */
-    onRemove: function () {
+    onRemove: function() {
 
         this._clearPolygons();
 
-        this.map.off('mousedown touchstart', this.bindEvents().mouseDown);
-        this.map.off('mousemove touchmove', this.bindEvents().mouseMove);
-        this.map.off('mousedown touchstart', this.bindEvents().mouseUpLeave);
+        this.map.off('mousedown touchstart', this.mouseDown, this);
+        this.map.off('mousemove touchmove', this.mouseMove, this);
+        this.map.off('mousedown touchstart', this.mouseUpLeave, this);
 
-        var element = window.document.getElementsByTagName('body')[0];
-        element.removeEventListener('mouseleave', this.bindEvents().mouseUpLeave);
+        document.body
+            .removeEventListener('mouseleave', this.mouseUpLeave.bind(this));
 
     },
 
-    /**
-     * @method recreateEdges
-     * @param polygon {Object}
-     * @return {Number|Boolean}
-     */
-    recreateEdges: function (polygon) {
+    recreateEdges: function(polygon) {
 
         // Remove all of the current edges associated with the polygon.
         this.edges = this.edges.filter(function filter(edge) {
@@ -238,22 +155,13 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method resurrectOrphans
-     * @return {void}
-     */
-    resurrectOrphans: function () {
+    resurrectOrphans: function() {
 
-        /**
-         * @method recreate
-         * @param polygon {Object}
-         * @return {void}
-         */
-        var recreate = function recreate(polygon) {
+        var recreate = function(polygon) {
 
             setTimeout(function() {
 
-                this.silently(function silently() {
+                this.silently(function() {
 
                     // Reattach the polygon's edges.
                     this.recreateEdges(polygon);
@@ -287,14 +195,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * Responsible for polygon mutation without emitting the markers event.
-     *
-     * @method silently
-     * @param callbackFn {Function}
-     * @return {void}
-     */
-    silently: function (callbackFn) {
+    silently: function(callbackFn) {
 
         var silentBefore = this.silenced;
         this.silenced = true;
@@ -310,11 +211,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method cancelAction
-     * @return {void}
-     */
-    cancelAction: function () {
+    cancelAction: function() {
 
         this.creating = false;
         this.movingEdge = null;
@@ -324,14 +221,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * Update the permissions for what the user can do on the map.
-     *
-     * @method setMapPermissions
-     * @param method {String}
-     * @return {void}
-     */
-    setMapPermissions: function (method) {
+    setMapPermissions: function(method) {
 
         this.map.dragging[method]();
         this.map.touchZoom[method]();
@@ -362,15 +252,10 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method setMode
-     * @param mode {Number}
-     * @return {void}
-     */
-    setMode: function (mode) {
+    setMode: function(mode) {
 
         // Prevent the mode from ever being defined as zero.
-        mode = (mode === 0) ? L.FreeHandShapes.MODES.VIEW : mode;
+        mode = mode || L.FreeHandShapes.MODES.VIEW;
 
         // Set the current mode and emit the event.
         this.mode = mode;
@@ -439,20 +324,11 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method unsetMode
-     * @param mode {Number}
-     * @return {void}
-     */
-    unsetMode: function (mode) {
+    unsetMode: function(mode) {
         this.setMode(this.mode ^ mode);
     },
 
-    /**
-     * @method createD3
-     * @return {void}
-     */
-    createD3: function () {
+    createD3: function() {
 
         this.svg = this.d3elem
             .append('svg')
@@ -461,25 +337,15 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method destroyD3
-     * @return {L.FreeHandShapes}
-     * @chainable
-     */
-    destroyD3: function () {
+    destroyD3: function() {
         this.svg.remove();
         this.svg = {};
         return this;
     },
 
-    /**
-     * @method latLngsToClipperPoints
-     * @param latLngs {L.LatLng[]}
-     * @return {Object}
-     */
-    latLngsToClipperPoints: function (latLngs) {
+    latLngsToClipperPoints: function(latLngs) {
 
-        return latLngs.map(function (latLng) {
+        return latLngs.map(function(latLng) {
 
             var point = this.map.latLngToLayerPoint(latLng);
             return {
@@ -491,18 +357,13 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method clipperPolygonsToLatLngs
-     * @param polygons {Array}
-     * @return {Array}
-     */
-    clipperPolygonsToLatLngs: function (polygons) {
+    clipperPolygonsToLatLngs: function(polygons) {
 
         var latLngs = [];
 
-        polygons.forEach(function (polygon) {
+        polygons.forEach(function(polygon) {
 
-            polygon.forEach(function (point) {
+            polygon.forEach(function(point) {
 
                 point = L.point(point.X, point.Y);
                 var latLng = this.map.layerPointToLatLng(point);
@@ -516,17 +377,12 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method uniqueLatLngs
-     * @param latLngs {L.LatLng[]}
-     * @return {L.LatLng[]}
-     */
-    uniqueLatLngs: function (latLngs) {
+    uniqueLatLngs: function(latLngs) {
 
         var previousLatLngs = [],
             uniqueValues = [];
 
-        latLngs.forEach(function forEach(latLng) {
+        latLngs.forEach(function(latLng) {
 
             var model = JSON.stringify(latLng);
 
@@ -543,13 +399,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method handlePolygonClick
-     * @param polygon {L.Polygon}
-     * @param event {Object}
-     * @return {void}
-     */
-    handlePolygonClick: function handlePolygonClick(polygon, event) {
+    handlePolygonClick: function(polygon, event) {
 
         var latLngs = [],
             newPoint = this.map.mouseEventToContainerPoint(event.originalEvent),
@@ -558,7 +408,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             endPoint = new L.Point(),
             parts = [];
 
-        polygon._latlngs.forEach(function forEach(latLng) {
+        polygon._latlngs.forEach(function(latLng) {
 
             // Push each part into the array, because relying on the polygon's "_parts" array
             // isn't safe since they are removed when parts of the polygon aren't visible.
@@ -662,13 +512,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method createPolygon
-     * @param latLngs {L.LatLng[]}
-     * @param [forceCreation=false] {Boolean}
-     * @return {L.Polygon|Boolean}
-     */
-    createPolygon: function createPolygon(latLngs, forceCreation) {
+    createPolygon: function(latLngs, forceCreation) {
 
         if (!this.options.multiplePolygons && this.getPolygons(true).length >= 1) {
 
@@ -712,15 +556,20 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         }
 
-        var polygon = new this.Polygon(latLngs);
+        var polygon = new this.Polygon(latLngs, this.options.polygon);
 
         // Handle the click event on a polygon.
-        polygon.on('click', function onClick(event) {
+        polygon.on('click', function(event) {
             this.handlePolygonClick(polygon, event);
-        }.bind(this));
+        }, this);
 
         // Add the polyline to the map, and then find the edges of the polygon.
         polygon.addTo(this.map);
+
+        /*
+        TODO:
+        `this` is a feature group, it should call this.addLayer(polygon)
+        */
         this.polygons.push(polygon);
 
         // Attach all of the edges to the polygon.
@@ -740,7 +589,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
             polygon._latlngs = [];
 
-            polygon._parts[0].forEach(function forEach(edge) {
+            polygon._parts[0].forEach(function(edge) {
 
                 // Iterate over all of the parts to update the latLngs to clobber the redrawing upon zooming.
                 polygon._latlngs.push(this.map.layerPointToLatLng(edge));
@@ -765,37 +614,18 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method predefinedPolygon
-     * @param latLngs {L.LatLng[]}
-     * @return {L.Polygon|Boolean}
-     */
-    predefinedPolygon: function predefinedPolyon(latLngs) {
+    predefinedPolygon: function(latLngs) {
         return this.createPolygon(latLngs, true);
     },
 
-    /**
-     * @method undo
-     * @return {void}
-     */
-    undo: function undo() {
+    undo: function() {
         this._modifyState('undo');
     },
 
-    /**
-     * @method redo
-     * @return {void}
-     */
     redo: function redo() {
         this._modifyState('redo');
     },
 
-    /**
-     * @method _modifyState
-     * @param method {String}
-     * @return {void}
-     * @private
-     */
     _modifyState: function _modifyState(method) {
 
         // Silently remove all of the polygons, and then obtain the new polygons to be inserted
@@ -805,9 +635,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         var polygons = this.memory[method]();
 
         // Iteratively create each polygon for the new state.
-        polygons.forEach(function forEach(polygon) {
+        polygons.forEach(function(polygon) {
 
-            this.silently(function silently() {
+            this.silently(function() {
 
                 // Create each of the polygons from the current state silently.
                 this.createPolygon(polygon);
@@ -821,12 +651,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method getPolygons
-     * @param [includingOrphans=false] {Boolean}
-     * @return {Array}
-     */
-    getPolygons: function getPolygons(includingOrphans) {
+    getPolygons: function(includingOrphans) {
 
         var polygons = [];
 
@@ -863,7 +688,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         } else {
 
-            this.edges.forEach(function forEach(edge) {
+            this.edges.forEach(function(edge) {
 
                 if (polygons.indexOf(edge._freedraw.polygon) === -1) {
                     if (edge._freedraw.polygon instanceof this.Polygon) {
@@ -879,36 +704,32 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method mergePolygons
-     * @return {void}
-     */
-    mergePolygons: function mergePolygons() {
+    mergePolygons: function() {
 
         /**
          * @method mergePass
          * @return {void}
          */
-        var mergePass = function mergePass() {
+        var mergePass = function() {
 
             var allPolygons = this.getPolygons(),
                 allPoints = [];
 
-            allPolygons.forEach(function forEach(polygon) {
+            allPolygons.forEach(function(polygon) {
                 allPoints.push(this.latLngsToClipperPoints(polygon._latlngs));
             }.bind(this));
 
             var polygons = ClipperLib.Clipper.SimplifyPolygons(allPoints, ClipperLib.PolyFillType.pftNonZero);
 
-            this.silently(function silently() {
+            this.silently(function() {
 
                 this._clearPolygons();
 
-                polygons.forEach(function forEach(polygon) {
+                polygons.forEach(function(polygon) {
 
                     var latLngs = [];
 
-                    polygon.forEach(function forEach(point) {
+                    polygon.forEach(function(point) {
 
                         point = L.point(point.X, point.Y);
                         latLngs.push(this.map.layerPointToLatLng(point));
@@ -933,12 +754,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method destroyPolygon
-     * @param polygon {Object}
-     * @return {void}
-     */
-    destroyPolygon: function destroyPolygon(polygon) {
+    destroyPolygon: function(polygon) {
 
         this.map.removeLayer(polygon);
 
@@ -962,12 +778,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method destroyEdges
-     * @param polygon {Object}
-     * @return {void}
-     */
-    destroyEdges: function destroyEdges(polygon) {
+    destroyEdges: function(polygon) {
 
         // ...And then remove all of its related edges to prevent memory leaks.
         this.edges = this.edges.filter(function filter(edge) {
@@ -983,11 +794,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method clearPolygons
-     * @return {void}
-     */
-    clearPolygons: function clearPolygons() {
+    clearPolygons: function() {
 
         this.silently(this._clearPolygons);
 
@@ -998,14 +805,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method _clearPolygons
-     * @return {void}
-     * @private
-     */
-    _clearPolygons: function _clearPolygons() {
+    _clearPolygons: function() {
 
-        this.getPolygons().forEach(function forEach(polygon) {
+        this.getPolygons().forEach(function(polygon) {
 
             // Iteratively remove each polygon in the DOM.
             this.destroyPolygon(polygon);
@@ -1018,15 +820,11 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method notifyBoundaries
-     * @return {void}
-     */
-    notifyBoundaries: function notifyBoundaries() {
+    notifyBoundaries: function() {
 
         var latLngs = [];
 
-        this.getPolygons(true).forEach(function forEach(polygon) {
+        this.getPolygons(true).forEach(function(polygon) {
 
             // Ensure the polygon is visible.
             latLngs.push(polygon._latlngs);
@@ -1084,31 +882,33 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method emitPolygonCount
-     * @return {void}
-     */
-    emitPolygonCount: function emitPolygonCount() {
+    emitPolygonCount: function() {
 
         /**
          * @constant EMPTY_PATH
          * @type {String}
          */
-        var EMPTY_PATH = 'M0 0';
+        var EMPTY_PATH = 'M0 0',
+            polygons,
+            allEmpty;
 
-        // Perform a recount on the polygon count, since some may be removed because of their
-        // areas being too small.
-        var polygons = this.getPolygons(true),
-            allEmpty = polygons.every(function every(polygon) {
+        if (window.L_PREFER_CANVAS) {
+            polygons = this.polygons || [];
+        } else {
+            // Perform a recount on the polygon count, since some may be removed because of their
+            // areas being too small.
+            polygons = this.getPolygons(true);
+            allEmpty = polygons.every(function (polygon) {
 
                 var path = polygon._container.lastChild.getAttribute('d').trim();
                 return path === EMPTY_PATH;
 
             });
+        }
 
         if (allEmpty) {
 
-            this.silently(function silently() {
+            this.silently(function() {
 
                 // Silently remove all of the polygons because they are empty.
                 this._clearPolygons();
@@ -1138,12 +938,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method createEdges
-     * @param polygon {L.polygon}
-     * @return {Number|Boolean}
-     */
-    createEdges: function createEdges(polygon) {
+    createEdges: function(polygon) {
 
         /**
          * Responsible for getting the parts based on the original lat/longs.
@@ -1152,7 +947,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
          * @param polygon {Object}
          * @return {Array}
          */
-        var originalLatLngs = function originalLatLngs(polygon) {
+        var originalLatLngs = function(polygon) {
 
             if (!polygon._parts[0]) {
 
@@ -1161,7 +956,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
             }
 
-            return polygon._latlngs.map(function map(latLng) {
+            return polygon._latlngs.map(function(latLng) {
                 return this.map.latLngToLayerPoint(latLng);
             }.bind(this));
 
@@ -1175,7 +970,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             return false;
         }
 
-        parts.forEach(function forEach(point) {
+        parts.forEach(function(point) {
 
             // Leaflet creates elbows in the polygon, which we need to utilise to add the
             // points for modifying its shape.
@@ -1198,7 +993,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             this.edges.push(edge);
             edgeCount++;
 
-            edge.on('mousedown touchstart', function onMouseDown(event) {
+            edge.on('mousedown touchstart', function(event) {
 
                 event.originalEvent.preventDefault();
                 event.originalEvent.stopPropagation();
@@ -1212,14 +1007,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method updatePolygonEdge
-     * @param edge {Object}
-     * @param positionX {Number}
-     * @param positionY {Number}
-     * @return {void}
-     */
-    updatePolygonEdge: function updatePolygon(edge, positionX, positionY) {
+    updatePolygonEdge: function(edge, positionX, positionY) {
 
         var updatedLatLng = this.map.containerPointToLatLng(new L.Point(positionX, positionY));
 
@@ -1230,7 +1018,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         var allEdges = [];
 
         // Fetch all of the edges in the group based on the polygon.
-        var edges = this.edges.filter(function filter(currentEdge) {
+        var edges = this.edges.filter(function(currentEdge) {
             allEdges.push(currentEdge);
             return currentEdge._freedraw.polygon === edge._freedraw.polygon;
         });
@@ -1239,7 +1027,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         this.edges = allEdges;
 
         var updatedLatLngs = [];
-        edges.forEach(function forEach(marker) {
+        edges.forEach(function(marker) {
             updatedLatLngs.push(marker.getLatLng());
         });
 
@@ -1249,7 +1037,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    mouseDown: function (event) {
+    mouseDown: function(event) {
         if (this.creating) {
             return;
         }
@@ -1287,7 +1075,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    mouseMove: function (event) {
+    mouseMove: function(event) {
         if (this.movingEdge) {
 
             // User is in fact modifying the shape of the polygon.
@@ -1317,7 +1105,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    mouseUpLeave: function () {
+    mouseUpLeave: function() {
 
         if (this.movingEdge) {
 
@@ -1352,13 +1140,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method _editMouseMove
-     * @param event {Object}
-     * @return {void}
-     * @private
-     */
-    _editMouseMove: function _editMouseMove(event) {
+    _editMouseMove: function(event) {
 
         var pointModel = this.map.latLngToContainerPoint(event.latlng);
 
@@ -1371,7 +1153,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    touchStart : function (point) {
+    touchStart: function(point) {
         if (this.creating) {
             return;
         }
@@ -1383,7 +1165,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         d3.event.preventDefault();
 
         this.latLngs = [];
-        this.fromPoint = L.point( point );
+        this.fromPoint = L.point(point);
 
         if (this.mode & L.FreeHandShapes.MODES.CREATE) {
 
@@ -1394,7 +1176,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         }
     },
 
-    touchMove : function (point) {
+    touchMove: function(point) {
         if (this.movingEdge) {
 
             // User is in fact modifying the shape of the polygon.
@@ -1425,12 +1207,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         this.latLngs.push(latLng);
     },
 
-    /**
-     * @method trimPolygonEdges
-     * @param polygon {L.Polygon}
-     * @return {void}
-     */
-    trimPolygonEdges: function trimPolygonEdges(polygon) {
+    trimPolygonEdges: function(polygon) {
 
         var latLngs = [];
 
@@ -1450,12 +1227,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method _createMouseUp
-     * @return {void}
-     * @private
-     */
-    _createMouseUp: function () {
+    _createMouseUp: function() {
 
         if (!this.creating) {
             return;
@@ -1504,18 +1276,3 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     }
 
 });
-
-/**
- * @constant MODES
- * @type {Object}
- */
-L.FreeHandShapes.MODES = {
-    NONE: 0,
-    VIEW: 1,
-    CREATE: 2,
-    EDIT: 4,
-    DELETE: 8,
-    APPEND: 16,
-    EDIT_APPEND: 4 | 16,
-    ALL: 1 | 2 | 4 | 8 | 16
-};
