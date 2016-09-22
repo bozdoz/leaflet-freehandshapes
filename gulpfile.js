@@ -33,6 +33,7 @@ gulp.task('bs', ['browserify-example'], function() {
             directory : true
         },
         startPath : "/example/index.html",
+        ui : false,
 		files : ['./**/*.html','./**/*.css']
     });
 });

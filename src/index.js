@@ -1,12 +1,111 @@
 var Memory = require('./Memory'),
     Hull = require('./Hull');
 
+L.Map.mergeOptions({
+  touchExtend: true
+});
+
+L.Map.TouchExtend = L.Handler.extend({
+
+  initialize: function (map) {
+    this._map = map;
+    this._container = map._container;
+    this._pane = map._panes.overlayPane;
+  },
+
+  addHooks: function () {
+    L.DomEvent.on(this._container, 'touchstart', this._onTouchStart, this);
+    L.DomEvent.on(this._container, 'touchmove', this._onTouchMove, this);
+    L.DomEvent.on(this._container, 'touchend', this._onTouchEnd, this);
+  },
+
+  removeHooks: function () {
+    L.DomEvent.off(this._container, 'touchstart', this._onTouchStart);
+    L.DomEvent.on(this._container, 'touchmove', this._onTouchMove, this);
+    L.DomEvent.off(this._container, 'touchend', this._onTouchEnd);
+  },
+
+  _onTouchStart: function (e) {
+    if (!this._map._loaded) { return; }
+
+    var type = 'touchstart',
+        touch = e.touches[0],
+        rect = this._container.getBoundingClientRect(),
+        x = touch.clientX - rect.left - this._container.clientLeft,
+        y = touch.clientY - rect.top - this._container.clientTop,
+        containerPoint = L.point(x, y),
+        layerPoint = this._map.containerPointToLayerPoint(containerPoint);
+        latlng = this._map.containerPointToLatLng(containerPoint);
+
+    this._map.fire(type, {
+      latlng: latlng,
+      layerPoint: layerPoint,
+      containerPoint : containerPoint,
+      originalEvent: e
+    });
+  },
+
+  _onTouchMove: function (e) {
+    if (!this._map._loaded || !e.changedTouches.length) { 
+        return; 
+    }
+
+    var type = 'touchmove',
+        touch = e.changedTouches[0],
+        rect = this._container.getBoundingClientRect(),
+        x = touch.clientX - rect.left - this._container.clientLeft,
+        y = touch.clientY - rect.top - this._container.clientTop,
+        containerPoint = L.point(x, y),
+        layerPoint = this._map.containerPointToLayerPoint(containerPoint);
+        latlng = this._map.containerPointToLatLng(containerPoint);
+
+    this._map.fire(type, {
+      latlng: latlng,
+      layerPoint: layerPoint,
+      containerPoint : containerPoint,
+      originalEvent: e
+    });
+  },
+
+  _onTouchEnd: function (e) {
+    if (!this._map._loaded) { return; }
+
+    var type = 'touchend';
+
+    this._map.fire(type, {
+      originalEvent: e
+    });
+  }
+});
+L.Map.addInitHook('addHandler', 'touchExtend', L.Map.TouchExtend);
+
 L.FreeHandShapes = L.FeatureGroup.extend({
     statics : {
         RECOUNT_TIMEOUT: 1,    
     },
 
-    options: require('./Options'),
+    options: {
+        polygon : {
+            className : 'leaflet-free-hand-shapes',
+            smoothFactor : 5
+        },
+        multiplePolygons: true,
+        simplifyPolygon: true,
+        invalidLength: 3,
+        hullAlgorithm: 'wildhoneyConcaveHull',
+        boundariesAfterEdit: false,
+        createExitMode: true,
+        attemptMerge: true,
+        iconClassName: 'polygon-elbow',
+        svgClassName: 'tracer',
+        polygonClassName: 'tracer',
+        deleteExitMode: false,
+        memoriseEachEdge: true,
+        destroyPrevious: false,
+        disablePropagation: false,
+        elbowDistance: 10,
+        onlyInDistance: false,
+    },
 
     initialize: function (options) {
 
@@ -37,10 +136,81 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         this.setMode(options.mode || 1);
 
         this.Polygon = L.Polygon.extend({
-            options: {
-                className: "leaflet-free-hand-shapes"
-            }
+            options: this.options.polygon
         });
+
+    },
+
+    onAdd: function (map) {
+        var _this = this;
+
+        this.map = map;
+        this.mode = this.mode || L.FreeHandShapes.MODES.VIEW;
+
+        // Memorise the preferences so we know how to revert.
+        this.defaultPreferences = {
+            dragging: map.dragging._enabled,
+            touchZoom: map.touchZoom._enabled,
+            doubleClickZoom: map.doubleClickZoom._enabled,
+            scrollWheelZoom: map.scrollWheelZoom._enabled
+        };
+
+        if (!this.element) {
+
+            // Define the element D3 will bind to if the user hasn't specified a custom node.
+            this.element = map._container;
+
+        }
+
+        // Define the line function for drawing the polygon from the user's mouse pointer.
+        this.lineFunction = d3.line()
+            .x(function pointX(d) {
+                return d.x;
+            })
+            .y(function pointY(d) {
+                return d.y;
+            });
+
+        // Create a new instance of the D3 free-hand tracer.
+        this.d3elem = d3.select(this.options.element || this.element);
+        this.createD3();
+
+        // Attach all of the events.
+        this.map.on('mousedown touchstart', this.mouseDown, this);
+        this.map.on('mousemove touchmove', this.mouseMove, this);
+        this.map.on('mouseup touchend', this.mouseUpLeave, this);
+
+        document.body
+            .addEventListener('mouseleave', this.mouseUpLeave.bind(this));
+
+        this.d3map = d3.select(this.map._container);
+/*        this.d3map.on('touchstart', function () {
+            _this.touchStart.bind(_this, d3.touches(this));
+        });
+        this.d3map.on('touchmove', function () {
+            _this.touchMove.bind(_this, d3.touches(this));
+        });
+        this.d3map.on('touchend', this.mouseUpLeave.bind(this));*/
+
+        // Set the default mode.
+        this.setMode(this.mode);
+
+    },
+
+    /**
+     * @method onRemove
+     * @return {void}
+     */
+    onRemove: function () {
+
+        this._clearPolygons();
+
+        this.map.off('mousedown touchstart', this.bindEvents().mouseDown);
+        this.map.off('mousemove touchmove', this.bindEvents().mouseMove);
+        this.map.off('mousedown touchstart', this.bindEvents().mouseUpLeave);
+
+        var element = window.document.getElementsByTagName('body')[0];
+        element.removeEventListener('mouseleave', this.bindEvents().mouseUpLeave);
 
     },
 
@@ -49,7 +219,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param polygon {Object}
      * @return {Number|Boolean}
      */
-    recreateEdges: function recreateEdges(polygon) {
+    recreateEdges: function (polygon) {
 
         // Remove all of the current edges associated with the polygon.
         this.edges = this.edges.filter(function filter(edge) {
@@ -72,7 +242,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @method resurrectOrphans
      * @return {void}
      */
-    resurrectOrphans: function resurrectOrphans() {
+    resurrectOrphans: function () {
 
         /**
          * @method recreate
@@ -118,88 +288,13 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     /**
-     * @method onAdd
-     * @param map {L.Map}
-     * @return {void}
-     */
-    onAdd: function onAdd(map) {
-
-        map.on('zoomend', function onZoomEnd() {
-
-            setTimeout(this.resurrectOrphans.bind(this));
-
-        }.bind(this));
-
-        // Lazily hook up the options and hull objects.
-        this.map = map;
-        this.mode = this.mode || L.FreeHandShapes.MODES.VIEW;
-
-        // Memorise the preferences so we know how to revert.
-        this.defaultPreferences = {
-            dragging: map.dragging._enabled,
-            touchZoom: map.touchZoom._enabled,
-            doubleClickZoom: map.doubleClickZoom._enabled,
-            scrollWheelZoom: map.scrollWheelZoom._enabled
-        };
-
-        if (!this.element) {
-
-            // Define the element D3 will bind to if the user hasn't specified a custom node.
-            this.element = map._container;
-
-        }
-
-        // Define the line function for drawing the polygon from the user's mouse pointer.
-        this.lineFunction = d3.svg.line()
-            .x(function pointX(d) {
-                return d.x;
-            })
-            .y(function pointY(d) {
-                return d.y;
-            })
-            .interpolate('linear');
-
-        // Create a new instance of the D3 free-hand tracer.
-        this.createD3();
-
-        // Attach all of the events.
-        this.map.on(this.options.events[0] || 'mousedown touchstart', this.bindEvents().mouseDown);
-        this.map.on(this.options.events[1] || 'mousemove touchmove', this.bindEvents().mouseMove);
-        this.map.on(this.options.events[2] || 'mouseup   touchend', this.bindEvents().mouseUpLeave);
-
-        var element = window.document.getElementsByTagName('body')[0];
-        element.addEventListener('mouseleave', this.bindEvents().mouseUpLeave);
-
-        // Set the default mode.
-        this.setMode(this.mode);
-
-    },
-
-    /**
-     * @method onRemove
-     * @return {void}
-     */
-    onRemove: function onRemove() {
-
-        this._clearPolygons();
-
-        this.map.off(this.options.events[0] || 'mousedown touchstart', this.bindEvents().mouseDown);
-        this.map.off(this.options.events[1] || 'mousemove touchmove', this.bindEvents().mouseMove);
-        this.map.off(this.options.events[2] || 'mousedown touchstart', this.bindEvents().mouseUpLeave);
-
-        var element = window.document.getElementsByTagName('body')[0];
-        element.removeEventListener('mouseleave', this.bindEvents().mouseUpLeave);
-
-    },
-
-    /**
      * Responsible for polygon mutation without emitting the markers event.
      *
      * @method silently
      * @param callbackFn {Function}
      * @return {void}
      */
-    silently: function silently(callbackFn) {
+    silently: function (callbackFn) {
 
         var silentBefore = this.silenced;
         this.silenced = true;
@@ -219,7 +314,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @method cancelAction
      * @return {void}
      */
-    cancelAction: function cancelAction() {
+    cancelAction: function () {
 
         this.creating = false;
         this.movingEdge = null;
@@ -236,7 +331,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param method {String}
      * @return {void}
      */
-    setMapPermissions: function setMapPermissions(method) {
+    setMapPermissions: function (method) {
 
         this.map.dragging[method]();
         this.map.touchZoom[method]();
@@ -272,7 +367,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param mode {Number}
      * @return {void}
      */
-    setMode: function setMode(mode) {
+    setMode: function (mode) {
 
         // Prevent the mode from ever being defined as zero.
         mode = (mode === 0) ? L.FreeHandShapes.MODES.VIEW : mode;
@@ -349,7 +444,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param mode {Number}
      * @return {void}
      */
-    unsetMode: function unsetMode(mode) {
+    unsetMode: function (mode) {
         this.setMode(this.mode ^ mode);
     },
 
@@ -357,9 +452,10 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @method createD3
      * @return {void}
      */
-    createD3: function createD3() {
+    createD3: function () {
 
-        this.svg = d3.select(this.options.element || this.element).append('svg')
+        this.svg = this.d3elem
+            .append('svg')
             .attr('class', this.options.svgClassName)
             .attr('width', 200).attr('height', 200);
 
@@ -370,7 +466,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @return {L.FreeHandShapes}
      * @chainable
      */
-    destroyD3: function destroyD3() {
+    destroyD3: function () {
         this.svg.remove();
         this.svg = {};
         return this;
@@ -381,9 +477,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param latLngs {L.LatLng[]}
      * @return {Object}
      */
-    latLngsToClipperPoints: function latLngsToClipperPoints(latLngs) {
+    latLngsToClipperPoints: function (latLngs) {
 
-        return latLngs.map(function forEach(latLng) {
+        return latLngs.map(function (latLng) {
 
             var point = this.map.latLngToLayerPoint(latLng);
             return {
@@ -400,13 +496,13 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param polygons {Array}
      * @return {Array}
      */
-    clipperPolygonsToLatLngs: function clipperPolygonsToLatLngs(polygons) {
+    clipperPolygonsToLatLngs: function (polygons) {
 
         var latLngs = [];
 
-        polygons.forEach(function forEach(polygon) {
+        polygons.forEach(function (polygon) {
 
-            polygon.forEach(function polygons(point) {
+            polygon.forEach(function (point) {
 
                 point = L.point(point.X, point.Y);
                 var latLng = this.map.layerPointToLatLng(point);
@@ -425,7 +521,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
      * @param latLngs {L.LatLng[]}
      * @return {L.LatLng[]}
      */
-    uniqueLatLngs: function uniqueLatLngs(latLngs) {
+    uniqueLatLngs: function (latLngs) {
 
         var previousLatLngs = [],
             uniqueValues = [];
@@ -616,13 +712,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         }
 
-        var className = this.options.polygonClassName,
-            polygonOptions = L.extend({},
-                {
-                smoothFactor: this.options.smoothFactor,
-                className: Array.isArray(className) ? className[this.polygons.length] : className
-            }, this.options.polygon),
-            polygon = new this.Polygon(latLngs, polygonOptions);
+        var polygon = new this.Polygon(latLngs);
 
         // Handle the click event on a polygon.
         polygon.on('click', function onClick(event) {
@@ -1159,133 +1249,106 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     },
 
-    /**
-     * @method bindEvents
-     * @return {Object}
-     */
-    bindEvents: function bindEvents() {
-
-        if (this.events) {
-            return this.events;
+    mouseDown: function (event) {
+        if (this.creating) {
+            return;
         }
 
-        this.events = {
+        /**
+         * Used for determining if the user clicked with the right mouse button.
+         *
+         * @constant RIGHT_CLICK
+         * @type {Number}
+         */
+        var RIGHT_CLICK = 2;
 
-            /**
-             * @method mouseDown
-             * @param {Object} event
-             * @return {void}
-             */
-            mouseDown: function onMouseDown(event) {
+        if (event.originalEvent.button === RIGHT_CLICK) {
+            return;
+        }
 
-                if (this.creating) {
-                    return;
-                }
+        var originalEvent = event.originalEvent;
 
-                /**
-                 * Used for determining if the user clicked with the right mouse button.
-                 *
-                 * @constant RIGHT_CLICK
-                 * @type {Number}
-                 */
-                var RIGHT_CLICK = 2;
+        if (!this.options.disablePropagation) {
+            originalEvent.stopPropagation();
+        }
 
-                if (event.originalEvent.button === RIGHT_CLICK) {
-                    return;
-                }
+        originalEvent.preventDefault();
 
-                var originalEvent = event.originalEvent;
+        this.latLngs = [];
+        this.fromPoint = this.map.latLngToContainerPoint(event.latlng);
 
-                if (!this.options.disablePropagation) {
-                    originalEvent.stopPropagation();
-                }
+        if (this.mode & L.FreeHandShapes.MODES.CREATE) {
 
-                originalEvent.preventDefault();
+            // Place the user in create polygon mode.
+            this.creating = true;
+            this.setMapPermissions('disable');
 
-                this.latLngs = [];
-                this.fromPoint = this.map.latLngToContainerPoint(event.latlng);
+        }
 
-                if (this.mode & L.FreeHandShapes.MODES.CREATE) {
+    },
 
-                    // Place the user in create polygon mode.
-                    this.creating = true;
-                    this.setMapPermissions('disable');
+    mouseMove: function (event) {
+        if (this.movingEdge) {
 
-                }
+            // User is in fact modifying the shape of the polygon.
+            this._editMouseMove(event);
+            return;
 
-            }.bind(this),
+        }
 
-            /**
-             * @method mouseMove
-             * @param {Object} event
-             * @return {void}
-             */
-            mouseMove: function onMouseMove(event) {
+        if (!this.creating) {
 
-                var originalEvent = event.originalEvent;
+            // We can't do anything else if the user is not in the process of creating a brand-new
+            // polygon.
+            return;
 
-                if (this.movingEdge) {
+        }
 
-                    // User is in fact modifying the shape of the polygon.
-                    this._editMouseMove(event);
-                    return;
+        var latlng = event.latlng,
+            point = this.map.latLngToContainerPoint(latlng),
+            lineData = [this.fromPoint, point];
 
-                }
+        // Draw SVG line based on the last movement of the mouse's position.
+        this.svg.append('path').classed('drawing-line', true).attr('d', this.lineFunction(lineData))
+            .attr('stroke', '#D7217E').attr('stroke-width', 2).attr('fill', 'none');
 
-                if (!this.creating) {
+        this.fromPoint = point;
+        this.latLngs.push(latlng);
 
-                    // We can't do anything else if the user is not in the process of creating a brand-new
-                    // polygon.
-                    return;
+    },
 
-                }
+    mouseUpLeave: function () {
 
-                this._createMouseMove(originalEvent);
+        if (this.movingEdge) {
 
-            }.bind(this),
+            if (!this.options.boundariesAfterEdit) {
 
-            /**
-             * @method mouseUpLeave
-             * @return {void}
-             */
-            mouseUpLeave: function mouseUpLeave() {
+                // Notify of a boundary update immediately after editing one edge.
+                this.notifyBoundaries();
 
-                if (this.movingEdge) {
+            } else {
 
-                    if (!this.options.boundariesAfterEdit) {
+                // Change the option so that the boundaries will be invoked once the edit mode
+                // has been exited.
+                this.boundaryUpdateRequired = true;
 
-                        // Notify of a boundary update immediately after editing one edge.
-                        this.notifyBoundaries();
+            }
 
-                    } else {
+            // Recreate the polygon boundaries because we may have straight edges now.
+            this.trimPolygonEdges(this.movingEdge._freedraw.polygon);
+            this.mergePolygons();
+            this.movingEdge = null;
 
-                        // Change the option so that the boundaries will be invoked once the edit mode
-                        // has been exited.
-                        this.boundaryUpdateRequired = true;
+            if (this.options.memoriseEachEdge) {
+                this.memory.save(this.getPolygons(true));
+            }
 
-                    }
+            setTimeout(this.emitPolygonCount.bind(this), L.FreeHandShapes.RECOUNT_TIMEOUT);
+            return;
 
-                    // Recreate the polygon boundaries because we may have straight edges now.
-                    this.trimPolygonEdges(this.movingEdge._freedraw.polygon);
-                    this.mergePolygons();
-                    this.movingEdge = null;
+        }
 
-                    if (this.options.memoriseEachEdge) {
-                        this.memory.save(this.getPolygons(true));
-                    }
-
-                    setTimeout(this.emitPolygonCount.bind(this), L.FreeHandShapes.RECOUNT_TIMEOUT);
-                    return;
-
-                }
-
-                this._createMouseUp();
-
-            }.bind(this)
-
-        };
-
-        return this.events;
+        this._createMouseUp();
 
     },
 
@@ -1306,6 +1369,60 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         // Update the polygon's shape in real-time as the user drags their cursor.
         this.updatePolygonEdge(this.movingEdge, pointModel.x, pointModel.y);
 
+    },
+
+    touchStart : function (point) {
+        if (this.creating) {
+            return;
+        }
+
+        if (!this.options.disablePropagation) {
+            d3.event.stopPropagation();
+        }
+
+        d3.event.preventDefault();
+
+        this.latLngs = [];
+        this.fromPoint = L.point( point );
+
+        if (this.mode & L.FreeHandShapes.MODES.CREATE) {
+
+            // Place the user in create polygon mode.
+            this.creating = true;
+            this.setMapPermissions('disable');
+
+        }
+    },
+
+    touchMove : function (point) {
+        if (this.movingEdge) {
+
+            // User is in fact modifying the shape of the polygon.
+            this._editMouseMove(event);
+            return;
+
+        }
+
+        if (!this.creating) {
+
+            // We can't do anything else if the user is not in the process of creating a brand-new
+            // polygon.
+            return;
+
+        }
+
+        var newpoint = L.point(point),
+            latLng = this.map.containerPointToLatLng(newpoint),
+            lineData = [this.fromPoint, newpoint];
+
+        // Draw SVG line based on the last movement of the mouse's position.
+        this.svg.append('path').classed('drawing-line', true).attr('d', this.lineFunction(lineData))
+            .attr('stroke', '#D7217E').attr('stroke-width', 2).attr('fill', 'none');
+
+        // Take the pointer's position from the event for the next invocation of the mouse move event,
+        // and store the resolved latitudinal and longitudinal values.
+        this.fromPoint = newpoint;
+        this.latLngs.push(latLng);
     },
 
     /**
@@ -1334,38 +1451,11 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     /**
-     * @method _createMouseMove
-     * @param event {Object}
-     * @return {void}
-     * @private
-     */
-    _createMouseMove: function _createMouseMove(event) {
-
-        // Resolve the pixel point to the latitudinal and longitudinal equivalent.
-        var point = this.map.mouseEventToContainerPoint(event),
-            latLng = this.map.containerPointToLatLng(point);
-
-        // Line data that is fed into the D3 line function we defined earlier.
-        var lineData = [this.fromPoint, new L.Point(point.x, point.y)];
-
-        // Draw SVG line based on the last movement of the mouse's position.
-        this.svg.append('path').classed('drawing-line', true).attr('d', this.lineFunction(lineData))
-            .attr('stroke', '#D7217E').attr('stroke-width', 2).attr('fill', 'none');
-
-        // Take the pointer's position from the event for the next invocation of the mouse move event,
-        // and store the resolved latitudinal and longitudinal values.
-        this.fromPoint.x = point.x;
-        this.fromPoint.y = point.y;
-        this.latLngs.push(latLng);
-
-    },
-
-    /**
      * @method _createMouseUp
      * @return {void}
      * @private
      */
-    _createMouseUp: function _createMouseUp() {
+    _createMouseUp: function () {
 
         if (!this.creating) {
             return;
