@@ -763,7 +763,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         }
 
-        var polygon = new this.Polygon(latLngs);
+        var polygon = new this.Polygon(latLngs, this.options.polygon);
 
         // Handle the click event on a polygon.
         polygon.on('click', function(event) {
