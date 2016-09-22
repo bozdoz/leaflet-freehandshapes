@@ -21,8 +21,7 @@ gulp.task('build', ['build-dev'], function() {
 });
 
 gulp.task('browserify-example', ['build-dev'], function() {
-    return browserifyTemplate('./example/js/script.js')
-        .pipe(source('main.js'))
+    return browserifyTemplate('./example/js/script.js', 'main.js')
         .pipe(gulp.dest('./example/js/'))
         .pipe(browserSync.reload({stream: true}));
 });
