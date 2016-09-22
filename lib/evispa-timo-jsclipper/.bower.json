@@ -1,0 +1,26 @@
+{
+  "name": "evispa-timo-jsclipper",
+  "main": "clipper.js",
+  "description": "Boolean operations and offsetting library in Javascript.",
+  "license": "BSL-1.0",
+  "keywords": [
+    "clipper",
+    "jsclipper",
+    "javascript-clipper"
+  ],
+  "authors": [
+    "Timo",
+    "Angus Johnson (http://www.angusj.com)"
+  ],
+  "ignore": [],
+  "homepage": "https://github.com/evispa/timo-jsclipper",
+  "_release": "06d85c9104",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "06d85c9104e91494606f244078af477ea720ecce"
+  },
+  "_source": "https://github.com/evispa/timo-jsclipper.git",
+  "_target": "*",
+  "_originalSource": "evispa-timo-jsclipper"
+}
