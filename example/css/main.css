@@ -12,9 +12,12 @@ body, html, #mapid {
     position: absolute;
     top:0;
     left:0;
-    background:#222;
-    width:200px;
     color:white;
+    pointer-events: none;
+}
+#draw {
+    background:#222;
+    pointer-events: all;
 }
 
 #mapid.mode-create {
