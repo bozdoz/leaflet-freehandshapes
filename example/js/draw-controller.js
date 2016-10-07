@@ -13,7 +13,7 @@ for (var name in categories) {
 				color : obj.muted_color,
 				fillColor : obj.bright_color,
 				fillOpacity: 0.5,
-				weight:2,
+				weight:3,
 				smoothFactor: 1
 			}
 		});
@@ -23,7 +23,8 @@ for (var name in categories) {
 	group.addLayer( drawer );
 
 	drawer.on('layeradd', function (data) {
-		var poly = data.layer,
+		var _this = this,
+			poly = data.layer,
 			_leaflet_id = poly._leaflet_id,
 			polys_alt_category = [],
 			polys_same_category = [];
@@ -32,7 +33,7 @@ for (var name in categories) {
 		group.eachLayer(function (layer) {
 			var polyarr = polys_alt_category;
 
-			if (layer === poly.getParentInstance()) {
+			if (layer === _this) {
 				polyarr = polys_same_category;
 			}
 
