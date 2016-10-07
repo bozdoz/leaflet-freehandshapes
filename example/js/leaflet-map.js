@@ -10,7 +10,7 @@ var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     map = L.map('mapid', {
     	layers : [baseMaps[localStorage.baseMap || 'Open Street Map']],
     	zoom : 6,
-    	center : [54.87660665410869, -115.01586914062499],
+    	center : [54.8766, -115.0158],
     	attributionControl: false,
         zoomControl : false,
     });

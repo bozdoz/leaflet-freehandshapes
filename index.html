@@ -3,21 +3,163 @@
 
 <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="lib/leaflet/dist/leaflet.css">
-    <link rel="stylesheet" href="example/css/main.css" />
+    <link rel="stylesheet" href="/lib/leaflet/dist/leaflet.css">
+    <link rel="stylesheet" href="/example/css/main.css" />
     <title>Example Leaflet FreeHandShapes</title>
 </head>
 <body>
 
     <div id="mapid"></div>
 
-    <script>L_PREFER_CANVAS = false;</script> 
-    <script type="text/javascript" src="lib/dat.gui/dat.gui.min.js"></script>
-    <script type="text/javascript" src="lib/leaflet/dist/leaflet-src.js"></script>
-    <script type="text/javascript" src="lib/d3/d3.min.js"></script>
-    <script type="text/javascript" src="lib/evispa-timo-jsclipper/clipper.js"></script>
-    <script type="text/javascript" src="lib/concavehull/dist/concavehull.min.js"></script>
-    <script type="text/javascript" src="dist/leaflet-freehandshapes.js"></script>
-    <script src="example/js/main.js"></script> 
+    <div id="draw-container" class="container">
+        <div class="row">
+            <h5 class="col-xs-12">
+            Choose BOTH a drawing tool and a Land Use Type:
+            </h5>
+        </div>
+        <div class="row ">
+            <div id="draw-tools" class="col-xs-8">
+                <h4>Draw Tools</h4>
+                <ul class="list-unstyled btn-group-vertical">
+                    <li>
+                        <label title="Pan Map">
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-tools"
+                                checked="checked" 
+                                value="pan" />
+                            <span class="btn btn-default">
+                                <span class="glyphicon glyphicon-move"></span>
+                                <span class="verbose"> Pan</span>
+                            </span>
+                        </label>
+                    </li><li>
+                        <label title="Add Shape">
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-tools"
+                                checked="checked" 
+                                value="add" />
+                            <span class="btn btn-default">
+                                <span class="glyphicon glyphicon-plus-sign"></span>
+                                <span class="verbose"> Add</span>
+                            </span>
+                        </label>
+                    </li><li>
+                        <label title="Subtract Shape">
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-tools"
+                                value="subtract" />
+                            <span class="btn btn-default">
+                                <span class="glyphicon glyphicon-minus-sign"></span>
+                                <span class="verbose"> Subtract</span>
+                            </span>
+                        </label>
+                    </li><li>
+                        <label title="Delete Shape">
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-tools"
+                                value="delete" />
+                            <span class="btn btn-default">
+                                <span class="glyphicon glyphicon-remove-sign"></span>
+                                <span class="verbose"> Delete</span>
+                            </span>
+                        </label>
+                    </li><li>
+                        <label title="Delete All Shapes">
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-tools"
+                                value="clear" />
+                            <span class="btn btn-default">
+                                <span class="glyphicon glyphicon-trash"></span>
+                                <span class="verbose"> Clear All</span>
+                            </span>
+                        </label>
+                    </li>
+                </ul>
+            </div>
+            <div id="draw-colors" class="col-xs-4">
+                <h4>Land Use Types</h4>
+                <ul class="list-unstyled pull-right">
+                    <li title="Grassland">
+                        <label>
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-colors"
+                                checked="checked" 
+                                value="grassland" />
+                            <span class="btn btn-warning">
+                                <span class="glyphicon glyphicon-grain"></span>
+                            </span>
+                        </label>
+                    </li><li title="Wetland">
+                        <label>
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-colors"
+                                value="wetland" />
+                            <span class="btn btn-primary">
+                                <span class="glyphicon glyphicon-tint"></span>
+                            </span>
+                        </label>
+                    </li><li title="Forest">
+                        <label>
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-colors"
+                                value="forest" />
+                            <span class="btn btn-success">
+                                <span class="glyphicon glyphicon-tree-deciduous"></span>
+                            </span>
+                        </label>
+                    </li><li title="Settlement">
+                        <label>
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-colors"
+                                value="settlement" />
+                            <span class="btn btn-info">
+                                <span class="glyphicon glyphicon-road"></span>
+                            </span>
+                        </label>
+                    </li><li title="Agriculture">
+                        <label>
+                            <input 
+                                type="radio" 
+                                class="hidden"
+                                name="drawing-colors"
+                                value="agriculture" />
+                            <span class="btn btn-danger">
+                                <span class="glyphicon glyphicon-piggy-bank"></span>
+                            </span>
+                        </label>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>L_PREFER_CANVAS = true;</script> 
+    <script type="text/javascript" src="/lib/jquery/dist/jquery.min.js"></script>
+    <script type="text/javascript" src="/lib/leaflet/dist/leaflet-src.js"></script>
+    <script type="text/javascript" src="
+https://npmcdn.com/@turf/turf@3.5.1/turf.min.js"></script>
+    <script type="text/javascript" src="/lib/d3/d3.min.js"></script>
+    <!-- <script type="text/javascript" src="/lib/evispa-timo-jsclipper/clipper.js"></script>
+    <script type="text/javascript" src="/lib/concavehull/dist/concavehull.min.js"></script> -->
+    <script type="text/javascript" src="/dist/leaflet-freehandshapes.js"></script>
+    <script src="/example/js/main.js"></script> 
 </body>
 </html>
