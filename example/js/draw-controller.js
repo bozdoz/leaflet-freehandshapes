@@ -9,14 +9,12 @@ var map = require('./leaflet-map'),
 for (var name in categories) {
 	var obj = categories[name],
 		drawer = new L.FreeHandShapes({
-			attemptMerge : false,
-			createExitMode : false,
-			hullAlgorithm : false,
 			polygon : {
 				color : obj.muted_color,
 				fillColor : obj.bright_color,
-				fillOpacity: 1,
-				smoothFactor: 2
+				fillOpacity: 0.5,
+				weight:2,
+				smoothFactor: 1
 			}
 		});
 
@@ -24,22 +22,33 @@ for (var name in categories) {
 
 	group.addLayer( drawer );
 
-	drawer.on('polygon-created', function (data) {
-		var poly = data.polygon,
+	drawer.on('layeradd', function (data) {
+		var poly = data.layer,
 			_leaflet_id = poly._leaflet_id,
-			polygons = [];
+			polys_alt_category = [],
+			polys_same_category = [];
+
+		// collect polygons
+		group.eachLayer(function (layer) {
+			var polyarr = polys_alt_category;
+
+			if (layer === poly.getParentInstance()) {
+				polyarr = polys_same_category;
+			}
+
+			layer.eachLayer(function (polygon) {
+				if (polygon._leaflet_id != _leaflet_id) {
+					polyarr.push( polygon );
+				}
+			});
+		});
+
+		// merge with own kind
+		// turfworker.union(polys_same_category, poly);
 
 		// subtract all other layers
-		group.eachLayer(function (layer) {
-			polygons = polygons.concat(layer.polygons);
-		});
+		turfworker.subtract(polys_alt_category, poly);
 
-		// polygons includes itself
-		polygons = polygons.filter(function(a) {
-			return a._leaflet_id != _leaflet_id;
-		});
-
-		turfworker.subtract(polygons, poly);
 		turfworker.intersectWithTile(poly);
 	});
 }
@@ -57,7 +66,7 @@ group.getAllAsJSON = function () {
 	var output = {};
 
 	group.eachLayer(function(layer) {
-		var polygons = layer.polygons || [],
+		var polygons = layer.getLayers() || [],
 			coords = polygons.map(function (poly) {
 				return poly.toGeoJSON().geometry.coordinates;
 			});
@@ -83,7 +92,7 @@ group.getAllAsPolygons = function () {
 	var output = {};
 
 	group.eachLayer(function(layer) {
-		var polygons = layer.polygons || [];
+		var polygons = layer.getLayers() || [];
 			
 		if (!polygons.length) return;
 
@@ -128,7 +137,7 @@ group.enableDeleteTool = function () {
 
 group.clearPolygons = function () {
 	this.eachLayer(function (layer) {
-		layer.clearPolygons();
+		layer.clearLayers();
 	});
 };
 

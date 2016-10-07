@@ -39,7 +39,7 @@ gulp.task('bs', ['browserify-example'], function() {
 });
 
 gulp.task('watch', ['bs'], function() {
-    gulp.watch(['./src/*.js','./example/js/*.js'], ['browserify-example']);
+    gulp.watch(['./src/*.js','./example/js/*.js', '!./example/js/main.js'], ['browserify-example']);
 });
 
 function browserifyTemplate (file, output) {

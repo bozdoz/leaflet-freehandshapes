@@ -17,7 +17,7 @@
   "license": "MIT",
   "homepage": "https://github.com/bozdoz/Leaflet.FreeHandShapes",
   "scripts": {
-    "bower" : "bower install",
+    "bower": "bower install",
     "build": "npm bower & gulp build"
   },
   "repository": {
@@ -29,6 +29,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@turf/turf": "^3.5.2",
     "browser-sync": "^2.16.0",
     "browserify": "^13.1.0",
     "gulp": "^3.9.1",

@@ -1,13 +1,32 @@
 var turfworker = new function () {},
-	tilecache = {};
+	region = require('./region'),
+	regioncache;
 
-/*turfworker.intersectWithTile = function (poly) {
-	getTileJSON(function (tile_as_json) {
-		var jsona = polygonToGeoJSON(poly),
-			jsonb = turf.intersect(tile_as_json, jsona);
+region.on('add', function () {
+	regioncache = turf.buffer(polygonToGeoJSON(region), 0.000001);
+});
+
+function getBufferedPoly (poly) {
+	try {
+		return turf.buffer(poly, 0.000001);
+	} catch (e) {
+		try {
+			return turf.buffer(poly, 0.1);
+		} catch (e) {
+			return false;
+		}
+	}
+}
+
+turfworker.intersectWithTile = function (poly) {
+	var jsona = getBufferedPoly(polygonToGeoJSON(poly)),
+		jsonb = jsona ? turf.intersect(regioncache, jsona) : null;
+	try {
 		handleNewJson(poly, jsona, jsonb);
-	});
-};*/
+	} catch (e) {
+		return;
+	}
+};
 
 turfworker.subtract = function (polyarr, newpoly) {
 	/*
@@ -27,43 +46,46 @@ turfworker.subtract = function (polyarr, newpoly) {
 			jsona = polygonToGeoJSON(poly),
 			diff = turfdiff(jsona, jsonb);
 		handleNewJson(poly, jsona, diff);
+		if (!diff) {
+			// poly was destroyed
+			break;
+		}
 	}
 };
 
-function turfdiff (a, b) {
-	try {
-		return turf.difference(a, b);
-	} catch (e) {
-		try {
-			return turf.difference(
-				turf.buffer(a, 0), 
-				turf.buffer(b, 0)
-				);
-		} catch (e) {
-			console.trace('turfdiff', a, b);
-			// somehow the polygons 
-			// are turning into
-			// three identical coordinates
-			// so I'd say return undefined (kill it)
-			return undefined;
+turfworker.union = function (polyarr, newpoly) {
+	/*
+	
+	polyarr (array of leaflet L.Polygon's)
+	newpoly (L.Polygon)
+
+	new poly is drawn, all polys in polyarr
+	must be unioned
+	*/
+	var polyarr = (polyarr || []).slice(), // copy
+		jsonb = polygonToGeoJSON( newpoly );
+
+	/* todo: test async for loop */
+	for (var i = 0, len = polyarr.length; i < len; i++) {
+		var poly = polyarr[i],
+			jsona = polygonToGeoJSON(poly),
+			union = turfunion(jsona, jsonb);
+
+		if (union.geometry.type === "MultiPolygon") {
+			// do not union non-contiguous polys
+			continue;
 		}
-	}
-}
 
-function polygonToGeoJSON (poly) {
-	var geojson = poly.toGeoJSON();
-	if (geojson.features) {
-		return geojson.features[0];
+		handleNewJson(newpoly, jsonb, union);
+		
+		// destroy the unioned, merged into newpoly
+		poly.destroy();
+		jsonb = union;
 	}
-	return geojson;
-}
-
-function geoJSONToPolygon (geojson) {
-	return L.GeoJSON.geometryToLayer( geojson );
 };
 
 function handleNewJson (poly, json_old, json_new) {
-	if (json_new === undefined) {
+	if (!json_new) {
 		// polygon has been overwritten
 		poly.destroy();
 		return; 
@@ -81,7 +103,7 @@ function handleNewJson (poly, json_old, json_new) {
 	} else {
 		// polygon got split into a multi
 		var coords = json_new.geometry.coordinates,
-			group = poly.getFreeHandShapes();
+			group = poly.getParentInstance();
 
 		// destroy and rebuild each?
 		poly.destroy();
@@ -90,9 +112,60 @@ function handleNewJson (poly, json_old, json_new) {
 		for (var i = 0, len = coords.length; i < len; i++) {
 			var singlejson = turf.polygon(coords[i]);
 			// pass false so create event doesn't fire again
-			group._createPolygon( geoJSONToPolygon( singlejson ).getLatLngs(), true );
+			group.createPolygon( geoJSONToPolygon( singlejson ).getLatLngs(), true );
 		}
 	}
+};
+
+function turfdiff (a, b) {
+	try {
+		return turf.difference(a, b);
+	} catch (e) {
+		try {
+			return turf.difference(
+				getBufferedPoly(a), 
+				getBufferedPoly(b)
+				);
+		} catch (e) {
+			console.trace('turfdiff', a, b);
+			// somehow the polygons 
+			// are turning into
+			// three identical coordinates
+			// so I'd say return undefined (kill it)
+			// return undefined;
+
+			// maybe not
+			return a;
+		}
+	}
+}
+
+function turfunion (a, b) {
+	try {
+		return turf.union(a, b);
+	} catch (e) {
+		try {
+			return turf.union(
+				getBufferedPoly(a), 
+				getBufferedPoly(b)
+				);
+		} catch (e) {
+			console.trace('turfunion', a, b);
+			return a;
+		}
+	}
+}
+
+function polygonToGeoJSON (poly) {
+	var geojson = poly.toGeoJSON();
+	if (geojson.features) {
+		return geojson.features[0];
+	}
+	return geojson;
+}
+
+function geoJSONToPolygon (geojson) {
+	return L.GeoJSON.geometryToLayer( geojson );
 };
 
 // define for Node module pattern loaders, including Browserify

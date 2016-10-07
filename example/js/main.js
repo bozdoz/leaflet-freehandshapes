@@ -56,14 +56,12 @@ var map = require('./leaflet-map'),
 for (var name in categories) {
 	var obj = categories[name],
 		drawer = new L.FreeHandShapes({
-			attemptMerge : false,
-			createExitMode : false,
-			hullAlgorithm : false,
 			polygon : {
 				color : obj.muted_color,
 				fillColor : obj.bright_color,
-				fillOpacity: 1,
-				smoothFactor: 2
+				fillOpacity: 0.5,
+				weight:2,
+				smoothFactor: 1
 			}
 		});
 
@@ -71,22 +69,33 @@ for (var name in categories) {
 
 	group.addLayer( drawer );
 
-	drawer.on('polygon-created', function (data) {
-		var poly = data.polygon,
+	drawer.on('layeradd', function (data) {
+		var poly = data.layer,
 			_leaflet_id = poly._leaflet_id,
-			polygons = [];
+			polys_alt_category = [],
+			polys_same_category = [];
+
+		// collect polygons
+		group.eachLayer(function (layer) {
+			var polyarr = polys_alt_category;
+
+			if (layer === poly.getParentInstance()) {
+				polyarr = polys_same_category;
+			}
+
+			layer.eachLayer(function (polygon) {
+				if (polygon._leaflet_id != _leaflet_id) {
+					polyarr.push( polygon );
+				}
+			});
+		});
+
+		// merge with own kind
+		// turfworker.union(polys_same_category, poly);
 
 		// subtract all other layers
-		group.eachLayer(function (layer) {
-			polygons = polygons.concat(layer.polygons);
-		});
+		turfworker.subtract(polys_alt_category, poly);
 
-		// polygons includes itself
-		polygons = polygons.filter(function(a) {
-			return a._leaflet_id != _leaflet_id;
-		});
-
-		turfworker.subtract(polygons, poly);
 		turfworker.intersectWithTile(poly);
 	});
 }
@@ -104,7 +113,7 @@ group.getAllAsJSON = function () {
 	var output = {};
 
 	group.eachLayer(function(layer) {
-		var polygons = layer.polygons || [],
+		var polygons = layer.getLayers() || [],
 			coords = polygons.map(function (poly) {
 				return poly.toGeoJSON().geometry.coordinates;
 			});
@@ -130,7 +139,7 @@ group.getAllAsPolygons = function () {
 	var output = {};
 
 	group.eachLayer(function(layer) {
-		var polygons = layer.polygons || [];
+		var polygons = layer.getLayers() || [];
 			
 		if (!polygons.length) return;
 
@@ -175,7 +184,7 @@ group.enableDeleteTool = function () {
 
 group.clearPolygons = function () {
 	this.eachLayer(function (layer) {
-		layer.clearPolygons();
+		layer.clearLayers();
 	});
 };
 
@@ -244,7 +253,7 @@ if (typeof module === 'object' &&
     	$('#draw-tools').find('input').first().trigger('click');
     };
 }
-},{"./categories":1,"./leaflet-map":4,"./turf-worker":6}],4:[function(require,module,exports){
+},{"./categories":1,"./leaflet-map":4,"./turf-worker":7}],4:[function(require,module,exports){
 var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     base = L.tileLayer( baseURL, {
             subdomains : 'abc'
@@ -257,7 +266,7 @@ var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     map = L.map('mapid', {
     	layers : [baseMaps[localStorage.baseMap || 'Open Street Map']],
     	zoom : 6,
-    	center : [54.87660665410869, -115.01586914062499],
+    	center : [54.8766, -115.0158],
     	attributionControl: false,
         zoomControl : false,
     });
@@ -284,20 +293,70 @@ if (typeof module === 'object' &&
     module.exports = map;
 }
 },{}],5:[function(require,module,exports){
+var region = L.geoJson(null, {
+	style : {
+		color:'black',
+		fillOpacity : 0
+	}
+});
+
+$.ajax({
+	url : 'https://gist.githubusercontent.com/anonymous/4626846f5f223a433199a347ce7e0620/raw/86459ac8f5996e2745d3f8e297d3c3a746992215/map.geojson',
+	dataType : 'json',
+	success : function (json) {
+		region.addData(json);
+		region.fire('add');
+	}
+})
+
+// define for Node module pattern loaders, including Browserify
+if (typeof module === 'object' && 
+    typeof module.exports === 'object') {
+    module.exports = region;
+}
+},{}],6:[function(require,module,exports){
 var map = require('./leaflet-map'),
     controls = require('./controls'),
-    drawcontroller = require('./draw-controller');
-},{"./controls":2,"./draw-controller":3,"./leaflet-map":4}],6:[function(require,module,exports){
-var turfworker = new function () {},
-	tilecache = {};
+    drawcontroller = require('./draw-controller'),
+    region = require('./region');
 
-/*turfworker.intersectWithTile = function (poly) {
-	getTileJSON(function (tile_as_json) {
-		var jsona = polygonToGeoJSON(poly),
-			jsonb = turf.intersect(tile_as_json, jsona);
+region.addTo(map);
+region.on('add', function () {
+	map.fitBounds(this.getBounds());
+});
+
+window.map = map;
+window.drawcontroller = drawcontroller;
+},{"./controls":2,"./draw-controller":3,"./leaflet-map":4,"./region":5}],7:[function(require,module,exports){
+var turfworker = new function () {},
+	region = require('./region'),
+	regioncache;
+
+region.on('add', function () {
+	regioncache = turf.buffer(polygonToGeoJSON(region), 0.000001);
+});
+
+function getBufferedPoly (poly) {
+	try {
+		return turf.buffer(poly, 0.000001);
+	} catch (e) {
+		try {
+			return turf.buffer(poly, 0.1);
+		} catch (e) {
+			return false;
+		}
+	}
+}
+
+turfworker.intersectWithTile = function (poly) {
+	var jsona = getBufferedPoly(polygonToGeoJSON(poly)),
+		jsonb = jsona ? turf.intersect(regioncache, jsona) : null;
+	try {
 		handleNewJson(poly, jsona, jsonb);
-	});
-};*/
+	} catch (e) {
+		return;
+	}
+};
 
 turfworker.subtract = function (polyarr, newpoly) {
 	/*
@@ -317,43 +376,46 @@ turfworker.subtract = function (polyarr, newpoly) {
 			jsona = polygonToGeoJSON(poly),
 			diff = turfdiff(jsona, jsonb);
 		handleNewJson(poly, jsona, diff);
+		if (!diff) {
+			// poly was destroyed
+			break;
+		}
 	}
 };
 
-function turfdiff (a, b) {
-	try {
-		return turf.difference(a, b);
-	} catch (e) {
-		try {
-			return turf.difference(
-				turf.buffer(a, 0), 
-				turf.buffer(b, 0)
-				);
-		} catch (e) {
-			console.trace('turfdiff', a, b);
-			// somehow the polygons 
-			// are turning into
-			// three identical coordinates
-			// so I'd say return undefined (kill it)
-			return undefined;
+turfworker.union = function (polyarr, newpoly) {
+	/*
+	
+	polyarr (array of leaflet L.Polygon's)
+	newpoly (L.Polygon)
+
+	new poly is drawn, all polys in polyarr
+	must be unioned
+	*/
+	var polyarr = (polyarr || []).slice(), // copy
+		jsonb = polygonToGeoJSON( newpoly );
+
+	/* todo: test async for loop */
+	for (var i = 0, len = polyarr.length; i < len; i++) {
+		var poly = polyarr[i],
+			jsona = polygonToGeoJSON(poly),
+			union = turfunion(jsona, jsonb);
+
+		if (union.geometry.type === "MultiPolygon") {
+			// do not union non-contiguous polys
+			continue;
 		}
-	}
-}
 
-function polygonToGeoJSON (poly) {
-	var geojson = poly.toGeoJSON();
-	if (geojson.features) {
-		return geojson.features[0];
+		handleNewJson(newpoly, jsonb, union);
+		
+		// destroy the unioned, merged into newpoly
+		poly.destroy();
+		jsonb = union;
 	}
-	return geojson;
-}
-
-function geoJSONToPolygon (geojson) {
-	return L.GeoJSON.geometryToLayer( geojson );
 };
 
 function handleNewJson (poly, json_old, json_new) {
-	if (json_new === undefined) {
+	if (!json_new) {
 		// polygon has been overwritten
 		poly.destroy();
 		return; 
@@ -371,7 +433,7 @@ function handleNewJson (poly, json_old, json_new) {
 	} else {
 		// polygon got split into a multi
 		var coords = json_new.geometry.coordinates,
-			group = poly.getFreeHandShapes();
+			group = poly.getParentInstance();
 
 		// destroy and rebuild each?
 		poly.destroy();
@@ -380,9 +442,60 @@ function handleNewJson (poly, json_old, json_new) {
 		for (var i = 0, len = coords.length; i < len; i++) {
 			var singlejson = turf.polygon(coords[i]);
 			// pass false so create event doesn't fire again
-			group._createPolygon( geoJSONToPolygon( singlejson ).getLatLngs(), true );
+			group.createPolygon( geoJSONToPolygon( singlejson ).getLatLngs(), true );
 		}
 	}
+};
+
+function turfdiff (a, b) {
+	try {
+		return turf.difference(a, b);
+	} catch (e) {
+		try {
+			return turf.difference(
+				getBufferedPoly(a), 
+				getBufferedPoly(b)
+				);
+		} catch (e) {
+			console.trace('turfdiff', a, b);
+			// somehow the polygons 
+			// are turning into
+			// three identical coordinates
+			// so I'd say return undefined (kill it)
+			// return undefined;
+
+			// maybe not
+			return a;
+		}
+	}
+}
+
+function turfunion (a, b) {
+	try {
+		return turf.union(a, b);
+	} catch (e) {
+		try {
+			return turf.union(
+				getBufferedPoly(a), 
+				getBufferedPoly(b)
+				);
+		} catch (e) {
+			console.trace('turfunion', a, b);
+			return a;
+		}
+	}
+}
+
+function polygonToGeoJSON (poly) {
+	var geojson = poly.toGeoJSON();
+	if (geojson.features) {
+		return geojson.features[0];
+	}
+	return geojson;
+}
+
+function geoJSONToPolygon (geojson) {
+	return L.GeoJSON.geometryToLayer( geojson );
 };
 
 // define for Node module pattern loaders, including Browserify
@@ -390,4 +503,4 @@ if (typeof module === 'object' &&
     typeof module.exports === 'object') {
     module.exports = turfworker;
 }
-},{}]},{},[5]);
+},{"./region":5}]},{},[6]);
