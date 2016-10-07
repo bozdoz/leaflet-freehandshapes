@@ -24,14 +24,7 @@
     "tests"
   ],
   "dependencies": {
-    "leaflet": "0.7.7",
-    "graham_scan": "1.0.4",
-    "concavehull": "~0.1.5",
-    "evispa-timo-jsclipper": "*",
-    "d3": "4.2.5"
+    "leaflet": "0.7.7"
   },
-  "devDependencies": {
-    "bootstrap": "*",
-    "jquery" : "*"
-  }
+  "devDependencies": {}
 }

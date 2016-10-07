@@ -17,24 +17,18 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             smoothFactor: 1
         },
         simplify_tolerance : 0.005,
-        merge_polygons : true,
-        svgClassName: 'tracer'
+        merge_polygons : true
     },
 
     initialize: function(options) {
         var _this = this;
-
-        if (typeof d3 === 'undefined') {
-            console.error('D3 is a required library', 'http://d3js.org/');
-            return;
-        }
 
         L.Util.setOptions(this, options);
 
         this._layers = {};
         
         this.Polygon = L.Polygon.extend({
-            getParentInstance : function () {
+            getGroup : function () {
                 return _this;
             },
             destroy : function () {
@@ -50,12 +44,10 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         });
 
         this.tracer = L.polyline([], {
-            color:'pink'
+            color:'#D7217E',
+            opacity:1,
+            weight:2
         });
-
-        this.fromPoint = { x: 0, y: 0 };
-        
-        this._latLngs = [];
     },
 
     onAdd: function(map) {
@@ -72,20 +64,6 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         };
 
         this.tracer.addTo(map);
-        this.element = map._container;
-
-        // Define the line function for drawing the polygon from the user's mouse pointer.
-        this.lineFunction = d3.line()
-            .x(function pointX(d) {
-                return d.x;
-            })
-            .y(function pointY(d) {
-                return d.y;
-            });
-
-        // Create a new instance of the D3 free-hand tracer.
-        this.d3elem = d3.select(this.options.element || this.element);
-        this.createD3();
 
         // Attach all of the events.
         map.on('mousedown touchstart', this.mouseDown, this);
@@ -126,13 +104,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         originalEvent.stopPropagation();
         originalEvent.preventDefault();
 
-        /*
-        todo:
-        create a L.polyline and add to it
-        */
-
-        this.latLngs = [];
-        this.fromPoint = this._map.latLngToContainerPoint(event.latlng);
+        this.tracer.setLatLngs([ event.latlng ]);
 
         if (this.mode & L.FreeHandShapes.MODES.CREATE) {
 
@@ -153,32 +125,14 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         }
 
-        var latlng = event.latlng,
-            point = this._map.latLngToContainerPoint(latlng),
-            lineData = [this.fromPoint, point];
-
-        // Draw SVG line based on the last movement of the mouse's position.
-        this.svg.append('path').classed('drawing-line', true).attr('d', this.lineFunction(lineData))
-            .attr('stroke', '#D7217E').attr('stroke-width', 2).attr('fill', 'none');
-
-        this.fromPoint = point;
-        this.latLngs.push(latlng);
-
-    },
-
-    mouseUpLeave: function() {
-
-        this._createMouseUp();
-
+        this.tracer.addLatLng(event.latlng);
     },
 
     touchStart: function(point) {
+        debugger;
         if (this.creating) {
             return;
         }
-
-        d3.event.stopPropagation();
-        d3.event.preventDefault();
 
         this.latLngs = [];
         this.fromPoint = L.point(point);
@@ -193,7 +147,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     touchMove: function(point) {
-
+        debugger;
         if (!this.creating) {
 
             // We can't do anything else if the user is not in the process of creating a brand-new
@@ -206,17 +160,14 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             latLng = this._map.containerPointToLatLng(newpoint),
             lineData = [this.fromPoint, newpoint];
 
-        // Draw SVG line based on the last movement of the mouse's position.
-        this.svg.append('path').classed('drawing-line', true).attr('d', this.lineFunction(lineData))
-            .attr('stroke', '#D7217E').attr('stroke-width', 2).attr('fill', 'none');
-
         // Take the pointer's position from the event for the next invocation of the mouse move event,
         // and store the resolved latitudinal and longitudinal values.
         this.fromPoint = newpoint;
         this.latLngs.push(latLng);
     },
 
-    _createMouseUp: function() {
+    mouseUpLeave: function() {
+        var latlngs;
 
         if (!this.creating) {
             return;
@@ -225,16 +176,18 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         // User has finished creating their polygon!
         this.creating = false;
 
-        if (this.latLngs.length <= 2) {
+        latlngs = this.tracer.getLatLngs();
+
+        if (latlngs.length <= 2) {
             // User has failed to drag their cursor enough to create a valid polygon.
             return;
         }
 
-        // Required for joining the two ends of the free-hand drawing to create a closed polygon.
-        this.latLngs.push(this.latLngs[0]);
-
         // Physically draw the Leaflet generated polygon.
-        this.createPolygon(this.latLngs);
+        this.createPolygon(latlngs);
+
+        // remove tracer
+        this.tracer.setLatLngs([]);
 
         // done
         this.setMapPermissions('enable');
@@ -255,9 +208,6 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         }
 
         this.addLayer( polygon );
-
-        // Begin to create a brand-new polygon.
-        this.destroyD3().createD3();
 
         return polygon;
     },
@@ -412,20 +362,5 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     unsetMode: function(mode) {
         this.setMode(this.mode ^ mode);
-    },
-
-    createD3: function() {
-
-        this.svg = this.d3elem
-            .append('svg')
-            .attr('class', this.options.svgClassName)
-            .attr('width', 200).attr('height', 200);
-
-    },
-
-    destroyD3: function() {
-        this.svg.remove();
-        this.svg = {};
-        return this;
-    },
+    }
 });

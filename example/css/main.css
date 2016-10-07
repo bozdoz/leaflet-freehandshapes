@@ -1,5 +1,3 @@
-@import '../../lib/bootstrap/dist/css/bootstrap.css';
-
 * {
     padding: 0;
     margin: 0;
@@ -14,54 +12,18 @@ body, html, #mapid {
     position: absolute;
     top:0;
     left:0;
-    background:#222;
-    width:200px;
     color:white;
+    pointer-events: none;
+}
+#draw {
+    background:#222;
+    pointer-events: all;
 }
 
 #mapid.mode-create {
     cursor: crosshair !important;
 }
 
-#mapid.mode-delete path {
+#mapid.mode-delete {
     cursor: no-drop !important;
-}
-
-#mapid.mode-delete path:hover {
-    fill: #4d4d4d !important;
-}
-
-#mapid div.polygon-elbow {
-    -webkit-transition: opacity .25s;
-    box-shadow: 0 0 0 2px white, 0 0 10px rgba(0, 0, 0, .35);
-    border: 5px solid #D7217E;
-    border-radius: 10px;
-    transition: opacity 0.25s;
-    cursor: move;
-    opacity: 0;
-    pointer-events: none;
-    box-sizing: border-box;
-    width: 0 !important;
-    height: 0 !important;
-}
-
-#mapid div.polygon-elbow.non-polygon {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    border: 5px solid darkgray;
-}
-
-#mapid.mode-edit div.polygon-elbow {
-    opacity: 1;
-    pointer-events: all;
-}
-
-#mapid svg.tracer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2001;
-    pointer-events: none;
 }

@@ -2,28 +2,28 @@
 var categories = { 
 		wetland: {
 		    category: 1,
-			muted_color : '#0A0A8D',
-		    bright_color: '#0000FF'
+			muted_color : '#2e6da4',
+		    bright_color: '#337ab7'
 		},
 		settlement: {
 		    category: 2,
-			muted_color : '#9B34A0',
-		    bright_color: '#FF00FF'
+			muted_color : '#46b8da',
+		    bright_color: '#5bc0de'
 		},
 		grassland: {
 		    category : 3,
-			muted_color : '#A8A200',
-		    bright_color : '#FFFF00'
+			muted_color : '#eea236',
+		    bright_color : '#f0ad4e'
 		},
 		agriculture: {
 		    category: 4,
-			muted_color : '#A8501E',
-		    bright_color: '#FF6600'
+			muted_color : '#ac2925',
+		    bright_color: '#c9302c'
 		},
 		forest: {
 		    category: 5,
-			muted_color : '#1C8F3C',
-		    bright_color: '#00FF00'
+			muted_color : '#4cae4c',
+		    bright_color: '#5cb85c'
 		},
 	};
 
@@ -60,7 +60,7 @@ for (var name in categories) {
 				color : obj.muted_color,
 				fillColor : obj.bright_color,
 				fillOpacity: 0.5,
-				weight:2,
+				weight:3,
 				smoothFactor: 1
 			}
 		});
@@ -70,7 +70,8 @@ for (var name in categories) {
 	group.addLayer( drawer );
 
 	drawer.on('layeradd', function (data) {
-		var poly = data.layer,
+		var _this = this,
+			poly = data.layer,
 			_leaflet_id = poly._leaflet_id,
 			polys_alt_category = [],
 			polys_same_category = [];
@@ -79,7 +80,7 @@ for (var name in categories) {
 		group.eachLayer(function (layer) {
 			var polyarr = polys_alt_category;
 
-			if (layer === poly.getParentInstance()) {
+			if (layer === _this) {
 				polyarr = polys_same_category;
 			}
 
@@ -421,19 +422,15 @@ function handleNewJson (poly, json_old, json_new) {
 		return; 
 	}
 
-	try {
-		var same_type = (json_old.geometry.type === json_new.geometry.type);
-	} catch (e) {
-		debugger;
-	}
+	var same_type = (json_old.geometry.type === json_new.geometry.type);
 
 	if (same_type) {
 		// no polygon to multipolygon shenanigans
-		poly.setLatLngs( geoJSONToPolygon( json_new ).getLatLngs() );
+		poly.setLatLngs( geoJSONToLatLngs( json_new ) );
 	} else {
 		// polygon got split into a multi
 		var coords = json_new.geometry.coordinates,
-			group = poly.getParentInstance();
+			group = poly.getGroup();
 
 		// destroy and rebuild each?
 		poly.destroy();
@@ -442,7 +439,7 @@ function handleNewJson (poly, json_old, json_new) {
 		for (var i = 0, len = coords.length; i < len; i++) {
 			var singlejson = turf.polygon(coords[i]);
 			// pass false so create event doesn't fire again
-			group.createPolygon( geoJSONToPolygon( singlejson ).getLatLngs(), true );
+			group.createPolygon( geoJSONToLatLngs( singlejson ), true );
 		}
 	}
 };
@@ -453,19 +450,26 @@ function turfdiff (a, b) {
 	} catch (e) {
 		try {
 			return turf.difference(
-				getBufferedPoly(a), 
-				getBufferedPoly(b)
-				);
+				turf.buffer(a, 0.000001), 
+                turf.buffer(b, 0.000001)
+			);
 		} catch (e) {
-			console.trace('turfdiff', a, b);
-			// somehow the polygons 
-			// are turning into
-			// three identical coordinates
-			// so I'd say return undefined (kill it)
-			// return undefined;
+			try {
+				return turf.difference(
+					turf.buffer(a, 0.1), 
+	                turf.buffer(b, 0.1)
+				);
+			} catch (e) {
+				console.trace('turfdiff', a, b);
+				// somehow the polygons 
+				// are turning into
+				// three identical coordinates
+				// so I'd say return undefined (kill it)
+				// return undefined;
 
-			// maybe not
-			return a;
+				// maybe not
+				return a;
+			}
 		}
 	}
 }
@@ -476,12 +480,19 @@ function turfunion (a, b) {
 	} catch (e) {
 		try {
 			return turf.union(
-				getBufferedPoly(a), 
-				getBufferedPoly(b)
+				turf.buffer(a, 0.000001), 
+                turf.buffer(b, 0.000001)
 				);
 		} catch (e) {
-			console.trace('turfunion', a, b);
-			return a;
+			try {
+				return turf.union(
+					turf.buffer(a, 0.1), 
+	                turf.buffer(b, 0.1)
+					);
+			} catch (e) {
+				console.trace('turfunion', a, b);
+				return a;
+			}
 		}
 	}
 }
@@ -494,8 +505,10 @@ function polygonToGeoJSON (poly) {
 	return geojson;
 }
 
-function geoJSONToPolygon (geojson) {
-	return L.GeoJSON.geometryToLayer( geojson );
+function geoJSONToLatLngs (geojson) {
+	var coords = geojson.geometry.coordinates,
+		latlngs = L.GeoJSON.coordsToLatLngs(coords, 1, L.GeoJSON.coordsToLatLng);
+	return latlngs;
 };
 
 // define for Node module pattern loaders, including Browserify
