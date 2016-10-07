@@ -2,28 +2,28 @@
 var categories = { 
 		wetland: {
 		    category: 1,
-			muted_color : '#0A0A8D',
-		    bright_color: '#0000FF'
+			muted_color : '#2e6da4',
+		    bright_color: '#337ab7'
 		},
 		settlement: {
 		    category: 2,
-			muted_color : '#9B34A0',
-		    bright_color: '#FF00FF'
+			muted_color : '#46b8da',
+		    bright_color: '#5bc0de'
 		},
 		grassland: {
 		    category : 3,
-			muted_color : '#A8A200',
-		    bright_color : '#FFFF00'
+			muted_color : '#eea236',
+		    bright_color : '#f0ad4e'
 		},
 		agriculture: {
 		    category: 4,
-			muted_color : '#A8501E',
-		    bright_color: '#FF6600'
+			muted_color : '#ac2925',
+		    bright_color: '#c9302c'
 		},
 		forest: {
 		    category: 5,
-			muted_color : '#1C8F3C',
-		    bright_color: '#00FF00'
+			muted_color : '#4cae4c',
+		    bright_color: '#5cb85c'
 		},
 	};
 
@@ -256,7 +256,8 @@ if (typeof module === 'object' &&
 },{"./categories":1,"./leaflet-map":4,"./turf-worker":7}],4:[function(require,module,exports){
 var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     base = L.tileLayer( baseURL, {
-            subdomains : 'abc'
+            subdomains : 'abc',
+            detectRetina: true
         }),
    	baseMaps = {
 		'Open Street Map' : L.tileLayer(baseURL, { 

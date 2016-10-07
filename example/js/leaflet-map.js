@@ -1,6 +1,7 @@
 var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     base = L.tileLayer( baseURL, {
-            subdomains : 'abc'
+            subdomains : 'abc',
+            detectRetina: true
         }),
    	baseMaps = {
 		'Open Street Map' : L.tileLayer(baseURL, { 
