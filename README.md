@@ -7,6 +7,7 @@ Leaflet.FreeHandShapes
 
 Forked from [L.FreeDraw](https://github.com/Wildhoney/Leaflet.FreeDraw)
 
+[See the demo](https://bozdoz.github.io/Leaflet.FreeHandShapes/)
 ![Screenshot](http://i.imgur.com/5Zis4Q4.png)
 
 ## Goals
