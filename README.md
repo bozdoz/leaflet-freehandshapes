@@ -16,7 +16,7 @@ Forked from [L.FreeDraw](https://github.com/Wildhoney/Leaflet.FreeDraw)
 * ~~Support for Canvas~~
 * ~~Support for Mobile~~
 * ~~Support for multiple instances~~
-* Subtract mode
+* ~~Subtract mode~~
 * A built-in control (L.Control) for UI
 * Compatibility with IE10
 * Update to Leaflet 1.0.1!

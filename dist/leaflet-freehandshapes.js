@@ -1506,27 +1506,28 @@ var touch_extend = require('./leaflet-touch-extend'),
     _turf = require('./turf');
 
 L.FreeHandShapes = L.FeatureGroup.extend({
-    statics: {
-        MODES: {
-            NONE: 0,
-            VIEW: 1,
-            CREATE: 2,
-            DELETE: 4
-        }
-    },
-
     options: {
         polygon: {
             className: 'leaflet-free-hand-shapes',
-            smoothFactor: 1
+            smoothFactor: 1,
+            fillOpacity : 0.5
+        },
+        polyline : {
+            color:'#5cb85c',
+            opacity:1,
+            weight:2
         },
         simplify_tolerance : 0.005,
         merge_polygons : true
     },
 
     initialize: function(options) {
-        var _this = this;
+        var _this = this,
+            options = options || {};
 
+        options.polygon = L.extend({}, this.options.polygon, options.polygon);
+        options.polyline = L.extend({}, this.options.polyline, options.polyline);
+        
         L.Util.setOptions(this, options);
 
         this._layers = {};
@@ -1547,11 +1548,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             }
         });
 
-        this.tracer = L.polyline([], {
-            color:'#D7217E',
-            opacity:1,
-            weight:2
-        });
+        this.tracer = L.polyline([], L.extend({}, this.options.polyline));
     },
 
     onAdd: function(map) {
@@ -1567,52 +1564,75 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             scrollWheelZoom: map.scrollWheelZoom._enabled
         };
 
-        this.tracer.addTo(map);
+        this._events('on');
 
-        // Attach all of the events.
-        map.on('mousedown touchstart', this.mouseDown, this);
-        map.on('mousemove touchmove', this.mouseMove, this);
-        map.on('mouseup touchend', this.mouseUpLeave, this);
-
-        document.body
-            .addEventListener('mouseleave', this.mouseUpLeave.bind(this));
-
-        this.setMode(this.mode || L.FreeHandShapes.MODES.VIEW);
+        this.setMode(this.mode || 'view');
     },
 
     onRemove: function (map) {
-
         this.clearLayers();
-
-        map.removeLayer(this.tracer);
-
-        map.off('mousedown touchstart', this.mouseDown, this);
-        map.off('mousemove touchmove', this.mouseMove, this);
-        map.off('mouseup touchend', this.mouseUpLeave, this);
-
-        document.body
-            .removeEventListener('mouseleave', this.mouseUpLeave.bind(this));
+        this._events('off');
     },
 
     // events
+
+    _events : function (onoff) {
+        var onoff = onoff || 'on',
+            dom_method = 'add',
+            map = this._map,
+            body = document.body;
+
+        if (onoff === 'off') {
+            dom_method = 'remove';
+        }
+
+        dom_method += 'EventListener';
+
+        // map events
+        map[ onoff ]('mousedown touchstart', this.mouseDown, this);
+        map[ onoff ]('mousemove touchmove', this.mouseMove, this);
+        map[ onoff ]('mouseup touchend', this.mouseUpLeave, this);
+
+        // body events
+        body[dom_method]('mouseleave', this.mouseUpLeave.bind(this));
+    },
 
     mouseDown: function(event) {
         var RIGHT_CLICK = 2,
             originalEvent = event.originalEvent;
 
         if (this.creating || 
-            originalEvent.button === RIGHT_CLICK) {
+            originalEvent.button === RIGHT_CLICK ||
+            originalEvent.ctrlKey ||
+            originalEvent.shiftKey) {
+            // 1. prevent double mousedown
+            // 2. prevent right click
+            // 3. allows ctrl key to toggle view mode
+            // 4. allows shift key to boxzoom
             return;
         }
 
         originalEvent.stopPropagation();
         originalEvent.preventDefault();
 
+        if (L.Path.CANVAS) {
+            // canvas bringToFront needs to reset the 
+            // leaflet id before adding to map 
+            this.tracer._leaflet_id = 0;
+            L.stamp( this.tracer );
+        } 
+
+        this._map.addLayer( this.tracer );
         this.tracer.setLatLngs([ event.latlng ]);
 
-        if (this.mode & L.FreeHandShapes.MODES.CREATE) {
+        if (!L.Path.CANVAS) {
+            // bringToFront works for SVG
+            this.tracer.bringToFront();
+        }
 
-            // Place the user in create polygon mode.
+        if (this.mode === 'add' || 
+            this.mode === 'subtract') {
+
             this.creating = true;
             this.setMapPermissions('disable');
 
@@ -1621,63 +1641,16 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     mouseMove: function(event) {
-        if (!this.creating) {
-
-            // We can't do anything else if the user is not in the process of creating a brand-new
-            // polygon.
-            return;
-
-        }
+        if (!this.creating) return;
 
         this.tracer.addLatLng(event.latlng);
-    },
-
-    touchStart: function(point) {
-        debugger;
-        if (this.creating) {
-            return;
-        }
-
-        this.latLngs = [];
-        this.fromPoint = L.point(point);
-
-        if (this.mode & L.FreeHandShapes.MODES.CREATE) {
-
-            // Place the user in create polygon mode.
-            this.creating = true;
-            this.setMapPermissions('disable');
-
-        }
-    },
-
-    touchMove: function(point) {
-        debugger;
-        if (!this.creating) {
-
-            // We can't do anything else if the user is not in the process of creating a brand-new
-            // polygon.
-            return;
-
-        }
-
-        var newpoint = L.point(point),
-            latLng = this._map.containerPointToLatLng(newpoint),
-            lineData = [this.fromPoint, newpoint];
-
-        // Take the pointer's position from the event for the next invocation of the mouse move event,
-        // and store the resolved latitudinal and longitudinal values.
-        this.fromPoint = newpoint;
-        this.latLngs.push(latLng);
     },
 
     mouseUpLeave: function() {
         var latlngs;
 
-        if (!this.creating) {
-            return;
-        }
+        if (!this.creating) return;
 
-        // User has finished creating their polygon!
         this.creating = false;
 
         latlngs = this.tracer.getLatLngs();
@@ -1687,60 +1660,93 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             return;
         }
 
-        // Physically draw the Leaflet generated polygon.
-        this.createPolygon(latlngs);
+        // convert tracer polyline into polygon
+        if (this.mode === 'add') {
+            this.addPolygon( latlngs );
+        } else if (this.mode === 'subtract') {
+            this.subtractPolygon( latlngs );
+        }
 
-        // remove tracer
+        // remove tracer polyline by setting empty points
         this.tracer.setLatLngs([]);
 
-        // done
+        // enable map functionality
         this.setMapPermissions('enable');
     },
 
     polygonClick: function(polygon, event) {
-        if (this.mode & L.FreeHandShapes.MODES.DELETE) { 
+        if (this.mode === 'delete') { 
             this.removeLayer(polygon);
         }
     },
 
-    createPolygon: function(latlngs, force) {
+    // polygon creation methods
+
+    addPolygon: function(latlngs, force) {
         var latlngs = force ? latlngs : this.getSimplified(latlngs),
-            polygon = new this.Polygon(latlngs, this.options.polygon);
+            polyoptions = L.extend({}, this.options.polygon),
+            polygon = new this.Polygon(latlngs, polyoptions);
 
         if (this.options.merge_polygons) {
             this.merge(polygon);
         }
+
+        // todo:
+        // styles for modes
+
+        /*polygon.on({
+            mouseover: highlightFeature.bind(this),
+            mouseout: resetHighlight.bind(this)
+        });*/
 
         this.addLayer( polygon );
 
         return polygon;
     },
 
+    subtractPolygon : function (latlngs) {
+        var latlngs = this.getSimplified(latlngs),
+            polygon = new L.Polygon(latlngs);
+
+        this.subtract(polygon);
+    },
+
     getSimplified : function (latlngs) {
-        var latlngs = latlngs || [];
+        var latlngs = latlngs || [],
+            points,
+            simplified,
+            tolerance = this.options.simplify_tolerance;
+
         if (latlngs.length &&
-            this.options.simplify_tolerance) {
+            tolerance) {
+
+            // latlng to x/y
             points = latlngs.map(function (a) {
                 return {x : a.lat, y : a.lng};
             });
-            simplified = L.LineUtil.simplify(points, this.options.simplify_tolerance);
 
+            // simplified points (needs x/y keys)
+            simplified = L.LineUtil.simplify(points, tolerance);
+
+            // x/y back to latlng
             latlngs = simplified.map(function (a) {
                 return {lat : a.x, lng : a.y};
             });
+
         }
+
         return latlngs;
     },
 
     merge : function (polygon) {
         var polys = this.getLayers(),
             newjson = polygon.toGeoJSON(),
-            _tryunion = this._tryunion;
+            fnc = this._tryturf.bind(this, 'union');
 
         for (var i = 0, len = polys.length; i < len; i++) {
             var poly = polys[i],
                 siblingjson = poly.toGeoJSON(),
-                union = _tryunion(newjson, siblingjson);
+                union = fnc(newjson, siblingjson);
 
             if (union === false ||
                 union.geometry.type === "MultiPolygon") {
@@ -1752,23 +1758,72 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             this.removeLayer( poly );
             newjson = union;
         }
-        polygon.setLatLngs( L.GeoJSON.geometryToLayer( newjson ).getLatLngs() );
+
+        // reset the new polygon with the 
+        // cumulatively unioned polygons
+        polygon.setLatLngs( this.getLatLngsFromJSON( newjson ) );
     },
 
-    _tryunion : function (a, b) {
+    subtract : function (polygon) {
+        var polys = this.getLayers(),
+            newjson = polygon.toGeoJSON(),
+            fnc = this._tryturf.bind(this, 'difference');
+
+        for (var i = 0, len = polys.length; i < len; i++) {
+            var poly = polys[i],
+                siblingjson = poly.toGeoJSON(),
+                diff = fnc(siblingjson, newjson);
+
+            if (diff === false) {
+                // turf failed
+                continue;
+            } 
+
+            if (diff === undefined) {
+                // poly was removed
+                this.removeLayer( poly );
+                continue;
+            }
+
+            if (diff.geometry.type === "MultiPolygon") {
+                // poly was split into multi
+                // destroy and rebuild
+                this.removeLayer( poly );
+
+                var coords = diff.geometry.coordinates;
+
+                for (var j = 0, lenj = coords.length; j < lenj; j++) {
+                    var polyjson = _turf.polygon( coords[ j ] ),
+                        latlngs = this.getLatLngsFromJSON( polyjson );
+                    this.addPolygon(latlngs, true);
+                }
+            } else {
+                // poly wasn't split: reset latlngs
+                poly.setLatLngs( this.getLatLngsFromJSON( diff ) );
+            }
+        }
+    },
+
+    getLatLngsFromJSON : function (json) {
+        var coords = json.geometry.coordinates;
+        return L.GeoJSON.coordsToLatLngs(coords, 1, L.GeoJSON.coordsToLatLng);
+    },
+
+    _tryturf : function (method, a, b) {
+        var fnc = _turf[method];
         try {
-            return _turf.union(a, b);
+            return fnc(a, b);
         } catch (_) {
             // buffer non-noded intersections
             try {
-                return _turf.union(
+                return fnc(
                     _turf.buffer(a, 0.000001), 
                     _turf.buffer(b, 0.000001)
                     );
             } catch (_) {
                 // try buffering again
                 try {
-                    return _turf.union(
+                    return fnc(
                         _turf.buffer(a, 0.1), 
                         _turf.buffer(b, 0.1)
                         );
@@ -1780,7 +1835,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         }
     },
 
-    // methods
+    // helper methods
     
     setMapPermissions: function(method) {
         var map = this._map,
@@ -1816,56 +1871,49 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     setMode: function(mode) {
-        // Prevent the mode from ever being defined as zero.
-        var mode = mode || L.FreeHandShapes.MODES.VIEW;
+        var mode = mode || 'view';
 
-        // Set the current mode and emit the event.
+        mode = mode.toLowerCase();
+
         this.mode = mode;
         this.fire('mode', {
             mode: mode
         });
 
+        if (mode === 'subtract') {
+            this.tracer.setStyle({
+                color : '#d9534f'
+            });
+        } else if (mode === 'add') {
+            this.tracer.setStyle({
+                color : this.options.polyline.color
+            });
+        }
+
         if (!this._map) {
             return;
         }
 
-        // Enable or disable dragging according to the current mode.
-        var isCreate = !!(mode & L.FreeHandShapes.MODES.CREATE),
-            method = !isCreate ? 'enable' : 'disable';
-        this._map.dragging[method]();
+        if (mode === 'add' || mode === 'subtract') {
+            this._map.dragging.disable();
+        } else {
+            this._map.dragging.enable();
+        }
 
-        /**
-         * Responsible for applying the necessary classes to the map based on the
-         * current active modes.
-         *
-         * @method defineClasses
-         * @return {void}
-         */
-        (function defineClasses(modes, map, addClass, removeClass) {
-
-            removeClass(map, 'mode-create');
-            removeClass(map, 'mode-delete');
-            removeClass(map, 'mode-view');
-            removeClass(map, 'mode-append');
-
-            if (mode & modes.VIEW) {
-                addClass(map, 'mode-view');
-            }
-
-            if (mode & modes.CREATE) {
-                addClass(map, 'mode-create');
-            }
-
-            if (mode & modes.DELETE) {
-                addClass(map, 'mode-delete');
-            }
-
-        }(L.FreeHandShapes.MODES, this._map._container, L.DomUtil.addClass, L.DomUtil.removeClass));
-
+        this.setMapClass();
     },
 
-    unsetMode: function(mode) {
-        this.setMode(this.mode ^ mode);
+    setMapClass : function () {
+        var map = this._map._container,
+            util = L.DomUtil,
+            removeClass = util.removeClass;
+
+        removeClass(map, 'leaflet-fhs-add');
+        removeClass(map, 'leaflet-fhs-subtract');
+        removeClass(map, 'leaflet-fhs-delete');
+        removeClass(map, 'leaflet-fhs-view');
+
+        util.addClass(map, 'leaflet-fhs-' + this.mode);
     }
 });
 

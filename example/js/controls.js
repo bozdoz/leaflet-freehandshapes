@@ -1,11 +1,17 @@
-var map = require('./leaflet-map'),
-	$inputs = $('#draw-container').find('input');
+var map = require('./leaflet-map');
 
-toggleinputs();
+(function () {
+	for (var i = 0, len = arguments.length; i < len; i++) {
+		(function ($elem) {
+			$elem.on('change', 'input', function () {
+				$elem.find('input')
+					.next()
+					.removeClass('active');
 
-$('#draw-container').on('change', 'input', toggleinputs);
-
-function toggleinputs () {
-	$inputs.next().removeClass('active');
-	$inputs.filter(':checked').next().addClass('active');
-}
+				$elem.find('input:checked')
+					.next()
+					.addClass('active');
+			});
+		})(arguments[i]);
+	}
+})($('#draw-tools'), $('#draw-colors'));
