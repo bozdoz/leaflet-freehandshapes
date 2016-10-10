@@ -3,7 +3,6 @@ var map = require('./leaflet-map'),
 	group = new L.FeatureGroup(),
 	activetool = $('#draw-tools').find('input:checked').val(),
 	activetype = $('#draw-colors').find('input:checked').val(),
-	modes = L.FreeHandShapes.MODES,
 	turfworker = require('./turf-worker');
 
 for (var name in categories) {
@@ -12,9 +11,11 @@ for (var name in categories) {
 			polygon : {
 				color : obj.muted_color,
 				fillColor : obj.bright_color,
-				fillOpacity: 0.5,
 				weight:3,
 				smoothFactor: 1
+			},
+			polyline : {
+			    color: obj.bright_color
 			}
 		});
 
@@ -43,9 +44,6 @@ for (var name in categories) {
 				}
 			});
 		});
-
-		// merge with own kind
-		// turfworker.union(polys_same_category, poly);
 
 		// subtract all other layers
 		turfworker.subtract(polys_alt_category, poly);
@@ -105,7 +103,7 @@ group.getAllAsPolygons = function () {
 
 group.enablePanTool = function () {
 	this.eachLayer(function (layer) {
-		layer.setMode(modes.VIEW);
+		layer.setMode('view');
 	});
 };
 
@@ -114,26 +112,40 @@ group.enableAddTool = function () {
 	this.eachLayer(function (layer) {
 		if (layer.category === activetype) {
 			// enable drawing tool for type
-			layer.setMode(modes.CREATE);
+			layer.setMode('add');
 		} else {
 			// disables other freehand instances
-			layer.setMode(modes.VIEW);
+			layer.setMode('view');
 		}
 	});
-	$(map._container).addClass('mode-create');
+	$(map._container).addClass('leaflet-fhs-add');
+};
+
+group.enableSubtractTool = function () {
+
+	this.eachLayer(function (layer) {
+		if (layer.category === activetype) {
+			// enable drawing tool for type
+			layer.setMode('subtract');
+		} else {
+			// disables other freehand instances
+			layer.setMode('view');
+		}
+	});
+	$(map._container).addClass('leaflet-fhs-subtract');
 };
 
 group.enableDeleteTool = function () {
 	this.eachLayer(function (layer) {
 		if (layer.category === activetype) {
 			// enable drawing tool for type
-			layer.setMode(modes.DELETE);
+			layer.setMode('delete');
 		} else {
 			// disables other freehand instances
-			layer.setMode(modes.VIEW);
+			layer.setMode('view');
 		}
 	});
-	$(map._container).addClass('mode-delete');
+	$(map._container).addClass('leaflet-fhs-delete');
 };
 
 group.clearPolygons = function () {
@@ -149,18 +161,15 @@ group.handleToolAndType = function () {
 	}
 
 	if (activetool === 'pan') {
-		// normal use of freedraw: create polygons in chosen land use type
 		group.enablePanTool();
 
 	} else if (activetool === 'add') {
-		// normal use of freedraw: create polygons in chosen land use type
+
 		group.enableAddTool();
 
 	} else if (activetool === 'subtract') {
-		// drawing tool is subtractive (requires TURF)
-		// group.enableSubtractTool();
-		console.log('not implemented');
-		$('#draw-tools').find('input').first().trigger('click');
+
+		group.enableSubtractTool();
 		
 	} else if (activetool === 'delete') {
 		// enable deletion of polygons in chosen land use type

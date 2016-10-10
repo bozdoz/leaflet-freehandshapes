@@ -108,7 +108,7 @@ function handleNewJson (poly, json_old, json_new) {
 		for (var i = 0, len = coords.length; i < len; i++) {
 			var singlejson = turf.polygon(coords[i]);
 			// pass false so create event doesn't fire again
-			group.createPolygon( geoJSONToLatLngs( singlejson ), true );
+			group.addPolygon( geoJSONToLatLngs( singlejson ), true );
 		}
 	}
 };
