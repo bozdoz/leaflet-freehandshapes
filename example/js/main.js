@@ -451,11 +451,16 @@ function turfdiff (a, b) {
 	                turf.buffer(b, 0.1)
 				);
 			} catch (e) {
-					console.error('last try');
+				try {
+					console.log('last try');
 					return turf.difference(
 						turf.buffer(a, 1), 
 		                turf.buffer(b, 1)
 					);
+				} catch (e) {
+					console.error('turf failed', a, b, e);
+					return false;
+				}
 			}
 		}
 	}
