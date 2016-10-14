@@ -68,7 +68,8 @@ for (var name in categories) {
 				smoothFactor: 1
 			},
 			polyline : {
-			    color: obj.bright_color
+			    color: obj.bright_color,
+			    smoothFactor: 0
 			}
 		});
 
@@ -77,32 +78,30 @@ for (var name in categories) {
 	group.addLayer( drawer );
 
 	drawer.on('layeradd', function (data) {
-		var _this = this,
-			poly = data.layer,
-			_leaflet_id = poly._leaflet_id,
-			polys_alt_category = [],
-			polys_same_category = [];
+		var poly = data.layer;
 
-		// collect polygons
-		group.eachLayer(function (layer) {
-			var polyarr = polys_alt_category;
-
-			if (layer === _this) {
-				polyarr = polys_same_category;
-			}
-
-			layer.eachLayer(function (polygon) {
-				if (polygon._leaflet_id != _leaflet_id) {
-					polyarr.push( polygon );
-				}
-			});
-		});
-
-		// subtract all other layers
-		turfworker.subtract(polys_alt_category, poly);
+		subtractOtherLayers.call(this, data );
 
 		turfworker.intersectWithTile(poly);
 	});
+
+	drawer.on('layersubtract', subtractOtherLayers);
+
+	function subtractOtherLayers (data) {
+		var poly = data.layer,
+			_leaflet_id = poly._leaflet_id,
+			polys_alt_category = [];
+
+		// collect polygons
+		group.eachLayer(function (layer) {
+			if (layer === this) return;
+			polys_alt_category = polys_alt_category.concat( layer.getLayers() );
+		}, this);
+
+		// subtract all other layers
+		turfworker.subtract(polys_alt_category, poly);
+	}
+
 }
 
 group.addTo(map);
@@ -360,7 +359,11 @@ function getBufferedPoly (poly) {
 		try {
 			return turf.buffer(poly, 0.1);
 		} catch (e) {
-			return false;
+			try {
+				return turf.buffer(poly, 1);
+			} catch (e) {
+				return false;
+			}
 		}
 	}
 }
@@ -392,47 +395,19 @@ turfworker.subtract = function (polyarr, newpoly) {
 		var poly = polyarr[i],
 			jsona = polygonToGeoJSON(poly),
 			diff = turfdiff(jsona, jsonb);
-		handleNewJson(poly, jsona, diff);
-		if (!diff) {
-			// poly was destroyed
+
+		if (diff === false) {
+			// poly is invalid!
+			newpoly.destroy(); //?
 			break;
 		}
-	}
-};
 
-turfworker.union = function (polyarr, newpoly) {
-	/*
-	
-	polyarr (array of leaflet L.Polygon's)
-	newpoly (L.Polygon)
-
-	new poly is drawn, all polys in polyarr
-	must be unioned
-	*/
-	var polyarr = (polyarr || []).slice(), // copy
-		jsonb = polygonToGeoJSON( newpoly );
-
-	/* todo: test async for loop */
-	for (var i = 0, len = polyarr.length; i < len; i++) {
-		var poly = polyarr[i],
-			jsona = polygonToGeoJSON(poly),
-			union = turfunion(jsona, jsonb);
-
-		if (union.geometry.type === "MultiPolygon") {
-			// do not union non-contiguous polys
-			continue;
-		}
-
-		handleNewJson(newpoly, jsonb, union);
-		
-		// destroy the unioned, merged into newpoly
-		poly.destroy();
-		jsonb = union;
+		handleNewJson(poly, jsona, diff);
 	}
 };
 
 function handleNewJson (poly, json_old, json_new) {
-	if (!json_new) {
+	if (json_new === undefined) {
 		// polygon has been overwritten
 		poly.destroy();
 		return; 
@@ -471,43 +446,17 @@ function turfdiff (a, b) {
 			);
 		} catch (e) {
 			try {
+				console.log('third try');
 				return turf.difference(
 					turf.buffer(a, 0.1), 
 	                turf.buffer(b, 0.1)
 				);
 			} catch (e) {
-				console.trace('turfdiff', a, b);
-				// somehow the polygons 
-				// are turning into
-				// three identical coordinates
-				// so I'd say return undefined (kill it)
-				// return undefined;
-
-				// maybe not
-				return a;
-			}
-		}
-	}
-}
-
-function turfunion (a, b) {
-	try {
-		return turf.union(a, b);
-	} catch (e) {
-		try {
-			return turf.union(
-				turf.buffer(a, 0.000001), 
-                turf.buffer(b, 0.000001)
-				);
-		} catch (e) {
-			try {
-				return turf.union(
-					turf.buffer(a, 0.1), 
-	                turf.buffer(b, 0.1)
+					console.error('last try');
+					return turf.difference(
+						turf.buffer(a, 1), 
+		                turf.buffer(b, 1)
 					);
-			} catch (e) {
-				console.trace('turfunion', a, b);
-				return a;
 			}
 		}
 	}

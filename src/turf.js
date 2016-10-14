@@ -14,28 +14,28 @@ module.exports = {
     concave: require('@turf/concave'),*/
     difference: require('@turf/difference'),
     /*collect: require('@turf/collect'),
-    flip: require('@turf/flip'),*/
+    flip: require('@turf/flip'),
     simplify: require('@turf/simplify'),
-    /*bezier: require('@turf/bezier'),
+    bezier: require('@turf/bezier'),
     tag: require('@turf/tag'),
-    sample: require('@turf/sample'),*/
+    sample: require('@turf/sample'),
     envelope: require('@turf/envelope'),
-    /*square: require('@turf/square'),
+    square: require('@turf/square'),
     circle: require('@turf/circle'),
     midpoint: require('@turf/midpoint'),*/
     buffer: require('@turf/buffer'),
     /*center: require('@turf/center'),
     centerOfMass: require('@turf/center-of-mass'),
-    centroid: require('@turf/centroid'),*/
+    centroid: require('@turf/centroid'),
     combine: require('@turf/combine'),
-    /*distance: require('@turf/distance'),*/
+    distance: require('@turf/distance'),
     explode: require('@turf/explode'),
-    /*bbox: require('@turf/bbox'),
+    bbox: require('@turf/bbox'),
     tesselate: require('@turf/tesselate'),
     bboxPolygon: require('@turf/bbox-polygon'),
-    inside: require('@turf/inside'),*/
+    inside: require('@turf/inside'),
     intersect: require('@turf/intersect'),
-    /*nearest: require('@turf/nearest'),
+    nearest: require('@turf/nearest'),
     planepoint: require('@turf/planepoint'),
     random: require('@turf/random'),
     tin: require('@turf/tin'),*/
@@ -54,14 +54,14 @@ module.exports = {
     squareGrid: require('@turf/square-grid'),
     triangleGrid: require('@turf/triangle-grid'),
     hexGrid: require('@turf/hex-grid'),
-    idw: require('@turf/idw'),*/
-    point: helpers.point,
+    idw: require('@turf/idw'),
+    point: helpers.point,*/
     polygon: helpers.polygon,
-    lineString: helpers.lineString,
+    /*lineString: helpers.lineString,
     multiPoint: helpers.multiPoint,
     multiPolygon: helpers.multiPolygon,
     multiLineString: helpers.multiLineString,
     feature: helpers.feature,
     featureCollection: helpers.featureCollection,
-    geometryCollection: helpers.geometryCollection
+    geometryCollection: helpers.geometryCollection*/
 };

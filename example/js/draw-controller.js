@@ -15,7 +15,8 @@ for (var name in categories) {
 				smoothFactor: 1
 			},
 			polyline : {
-			    color: obj.bright_color
+			    color: obj.bright_color,
+			    smoothFactor: 0
 			}
 		});
 
@@ -24,32 +25,30 @@ for (var name in categories) {
 	group.addLayer( drawer );
 
 	drawer.on('layeradd', function (data) {
-		var _this = this,
-			poly = data.layer,
-			_leaflet_id = poly._leaflet_id,
-			polys_alt_category = [],
-			polys_same_category = [];
+		var poly = data.layer;
 
-		// collect polygons
-		group.eachLayer(function (layer) {
-			var polyarr = polys_alt_category;
-
-			if (layer === _this) {
-				polyarr = polys_same_category;
-			}
-
-			layer.eachLayer(function (polygon) {
-				if (polygon._leaflet_id != _leaflet_id) {
-					polyarr.push( polygon );
-				}
-			});
-		});
-
-		// subtract all other layers
-		turfworker.subtract(polys_alt_category, poly);
+		subtractOtherLayers.call(this, data );
 
 		turfworker.intersectWithTile(poly);
 	});
+
+	drawer.on('layersubtract', subtractOtherLayers);
+
+	function subtractOtherLayers (data) {
+		var poly = data.layer,
+			_leaflet_id = poly._leaflet_id,
+			polys_alt_category = [];
+
+		// collect polygons
+		group.eachLayer(function (layer) {
+			if (layer === this) return;
+			polys_alt_category = polys_alt_category.concat( layer.getLayers() );
+		}, this);
+
+		// subtract all other layers
+		turfworker.subtract(polys_alt_category, poly);
+	}
+
 }
 
 group.addTo(map);

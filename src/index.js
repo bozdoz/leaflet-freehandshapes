@@ -11,6 +11,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         polyline : {
             color:'#5cb85c',
             opacity:1,
+            smoothFactor: 0,
             weight:2
         },
         simplify_tolerance : 0.005,
@@ -74,15 +75,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     _events : function (onoff) {
         var onoff = onoff || 'on',
-            dom_method = 'add',
-            map = this._map,
-            body = document.body;
-
-        if (onoff === 'off') {
-            dom_method = 'remove';
-        }
-
-        dom_method += 'EventListener';
+            map = this._map;
 
         // map events
         map[ onoff ]('mousedown touchstart', this.mouseDown, this);
@@ -90,7 +83,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         map[ onoff ]('mouseup touchend', this.mouseUpLeave, this);
 
         // body events
-        body[dom_method]('mouseleave', this.mouseUpLeave.bind(this));
+        L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave.bind(this));
     },
 
     mouseDown: function(event) {
@@ -108,8 +101,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             return;
         }
 
-        originalEvent.stopPropagation();
-        originalEvent.preventDefault();
+        L.DomEvent.stop(originalEvent);
 
         if (L.Path.CANVAS) {
             // canvas bringToFront needs to reset the 
@@ -120,7 +112,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         this._map.addLayer( this.tracer );
         this.tracer.setLatLngs([ event.latlng ]);
-
+        
         if (!L.Path.CANVAS) {
             // bringToFront works for SVG
             this.tracer.bringToFront();
@@ -149,12 +141,14 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         this.creating = false;
 
-        latlngs = this.tracer.getLatLngs();
+        latlngs = this.getSimplified( this.tracer.getLatLngs() );
 
-        if (latlngs.length <= 2) {
-            // User has failed to drag their cursor enough to create a valid polygon.
-            return;
-        }
+        // remove tracer polyline by setting empty points
+        this.tracer.setLatLngs([]);
+
+        // User has failed to drag their cursor 
+        // enough to create a valid polygon (triangle).
+        if (latlngs.length < 3) return;
 
         // convert tracer polyline into polygon
         if (this.mode === 'add') {
@@ -162,9 +156,6 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         } else if (this.mode === 'subtract') {
             this.subtractPolygon( latlngs );
         }
-
-        // remove tracer polyline by setting empty points
-        this.tracer.setLatLngs([]);
 
         // enable map functionality
         this.setMapPermissions('enable');
@@ -205,6 +196,13 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             polygon = new L.Polygon(latlngs);
 
         this.subtract(polygon);
+
+        // emit event:
+        // suppose a controller wants to 
+        // subtract all instances
+        this.fire('layersubtract', {
+            layer : polygon
+        });
     },
 
     getSimplified : function (latlngs) {
@@ -324,8 +322,17 @@ L.FreeHandShapes = L.FeatureGroup.extend({
                         _turf.buffer(b, 0.1)
                         );
                 } catch (_) {
-                    // give up
-                    return false;
+                    // try buffering one more time
+                    try {
+                        return fnc(
+                            _turf.buffer(a, 1), 
+                            _turf.buffer(b, 1)
+                            );
+                    } catch (_) {
+                        // give up
+                        console.error('turf failed', a, b);
+                        return false;
+                    }
                 }
             }
         }
@@ -362,6 +369,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
                 map.scrollWheelZoom.disable();
             }
 
+        } else {
+            // disable events
+            
         }
 
     },
@@ -412,3 +422,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         util.addClass(map, 'leaflet-fhs-' + this.mode);
     }
 });
+
+L.freeHandShapes = function (options) {
+    return new L.FreeHandShapes(options);
+};
