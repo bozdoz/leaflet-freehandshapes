@@ -16891,23 +16891,18 @@
                     this._events("off");
                 },
                 _events: function(onoff) {
-                    var onoff = onoff || "on", dom_method = "add", map = this._map, body = document.body;
-                    if (onoff === "off") {
-                        dom_method = "remove";
-                    }
-                    dom_method += "EventListener";
+                    var onoff = onoff || "on", map = this._map;
                     map[onoff]("mousedown touchstart", this.mouseDown, this);
                     map[onoff]("mousemove touchmove", this.mouseMove, this);
                     map[onoff]("mouseup touchend", this.mouseUpLeave, this);
-                    body[dom_method]("mouseleave", this.mouseUpLeave.bind(this));
+                    L.DomEvent[onoff](document.body, "mouseleave", this.mouseUpLeave.bind(this));
                 },
                 mouseDown: function(event) {
                     var RIGHT_CLICK = 2, originalEvent = event.originalEvent;
                     if (this.creating || originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
                         return;
                     }
-                    originalEvent.stopPropagation();
-                    originalEvent.preventDefault();
+                    L.DomEvent.stop(originalEvent);
                     if (L.Path.CANVAS) {
                         this.tracer._leaflet_id = 0;
                         L.stamp(this.tracer);
@@ -16930,16 +16925,14 @@
                     var latlngs;
                     if (!this.creating) return;
                     this.creating = false;
-                    latlngs = this.tracer.getLatLngs();
-                    if (latlngs.length <= 2) {
-                        return;
-                    }
+                    latlngs = this.getSimplified(this.tracer.getLatLngs());
+                    this.tracer.setLatLngs([]);
+                    if (latlngs.length < 3) return;
                     if (this.mode === "add") {
                         this.addPolygon(latlngs);
                     } else if (this.mode === "subtract") {
                         this.subtractPolygon(latlngs);
                     }
-                    this.tracer.setLatLngs([]);
                     this.setMapPermissions("enable");
                 },
                 polygonClick: function(polygon, event) {
@@ -16958,6 +16951,9 @@
                 subtractPolygon: function(latlngs) {
                     var latlngs = this.getSimplified(latlngs), polygon = new L.Polygon(latlngs);
                     this.subtract(polygon);
+                    this.fire("layersubtract", {
+                        layer: polygon
+                    });
                 },
                 getSimplified: function(latlngs) {
                     var latlngs = latlngs || [], points, simplified, tolerance = this.options.simplify_tolerance;
@@ -17028,7 +17024,12 @@
                             try {
                                 return fnc(_turf.buffer(a, .1), _turf.buffer(b, .1));
                             } catch (_) {
-                                return false;
+                                try {
+                                    return fnc(_turf.buffer(a, 1), _turf.buffer(b, 1));
+                                } catch (_) {
+                                    console.error("turf failed", a, b);
+                                    return false;
+                                }
                             }
                         }
                     }
@@ -17052,7 +17053,7 @@
                         if (!preferences.scrollWheelZoom) {
                             map.scrollWheelZoom.disable();
                         }
-                    }
+                    } else {}
                 },
                 setMode: function(mode) {
                     var mode = mode || "view";
