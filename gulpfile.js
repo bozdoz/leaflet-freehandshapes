@@ -3,20 +3,39 @@ var gulp = require('gulp'),
     source = require('vinyl-source-stream'),
     buffer = require('vinyl-buffer'),
     uglify = require('gulp-uglify'),
-    browserSync = require('browser-sync').create();
+    browserSync = require('browser-sync').create(),
+    derequire = require('gulp-derequire'),
+    umd = require('gulp-umd');
 
 gulp.task('default', ['watch']);
 
 gulp.task('build-dev', function() {
-	return browserifyTemplate('./src/index.js', 'leaflet-freehandshapes.js')
-		.pipe(gulp.dest('./dist/'))
-		.pipe(browserSync.reload({stream: true}));
+	return browserifyTemplate('./src/index.js', 'leaflet-freehandshapes.js', {
+            standalone : 'L.FreeHandShapes'
+        })
+        .pipe(derequire())
+        .pipe(buffer())
+        .pipe(uglify({
+            mangle: false,
+            compress : false,
+            output : {
+                beautify : true
+            },
+            preserveComments: 'license'
+        }))
+        .pipe(gulp.dest('./dist/'))
+        .pipe(browserSync.reload({stream: true}));
 });
 
 gulp.task('build', ['build-dev'], function() {
-    return browserifyTemplate('./src/index.js', 'leaflet-freehandshapes.min.js')
+    return browserifyTemplate('./src/index.js', 'leaflet-freehandshapes.min.js', {
+            standalone : 'L.FreeHandShapes'
+        })
+        .pipe(derequire())
         .pipe(buffer())
-        .pipe(uglify())
+        .pipe(uglify({
+            preserveComments: 'license'
+        }))
         .pipe(gulp.dest('./dist/'));
 });
 
@@ -42,8 +61,10 @@ gulp.task('watch', ['bs'], function() {
     gulp.watch(['./src/*.js','./example/js/*.js', '!./example/js/main.js'], ['browserify-example']);
 });
 
-function browserifyTemplate (file, output) {
-    return browserify( file )
+function browserifyTemplate (file, output, options) {
+    var options = options || {};
+
+    return browserify( file, options )
         .bundle()
         .on('error', errorHandler)
         .pipe(source( output ));
