@@ -14,7 +14,7 @@
         } else {
             g = this;
         }
-        (g.L || (g.L = {})).FreeHandShapes = f();
+        (g.L || (g.L = {})).freeHandShapes = f();
     }
 })(function() {
     var define, module, exports;
@@ -16845,6 +16845,7 @@
                     polyline: {
                         color: "#5cb85c",
                         opacity: 1,
+                        smoothFactor: 0,
                         weight: 2
                     },
                     simplify_tolerance: .005,
@@ -17088,6 +17089,9 @@
                     util.addClass(map, "leaflet-fhs-" + this.mode);
                 }
             });
+            L.freeHandShapes = function(options) {
+                return new L.FreeHandShapes(options);
+            };
         }, {
             "./leaflet-touch-extend": 8,
             "./turf": 9

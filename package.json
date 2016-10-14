@@ -1,6 +1,6 @@
 {
   "name": "leaflet.freehandshapes",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Refactored Leaflet shape drawing plugin, forked from https://github.com/Wildhoney/Leaflet.FreeDraw",
   "main": "dist/leaflet.freehandshapes.js",
   "authors": [
@@ -35,7 +35,7 @@
     "gulp": "^3.9.1",
     "gulp-derequire": "^2.1.0",
     "gulp-uglify": "^2.0.0",
-    "gulp-umd": "^0.2.0",
+    "leaflet": "^0.7.7",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.1.0"
   }

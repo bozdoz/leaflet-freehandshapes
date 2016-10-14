@@ -11,7 +11,7 @@ gulp.task('default', ['watch']);
 
 gulp.task('build-dev', function() {
 	return browserifyTemplate('./src/index.js', 'leaflet-freehandshapes.js', {
-            standalone : 'L.FreeHandShapes'
+            standalone : 'L.freeHandShapes'
         })
         .pipe(derequire())
         .pipe(buffer())
@@ -29,7 +29,7 @@ gulp.task('build-dev', function() {
 
 gulp.task('build', ['build-dev'], function() {
     return browserifyTemplate('./src/index.js', 'leaflet-freehandshapes.min.js', {
-            standalone : 'L.FreeHandShapes'
+            standalone : 'L.freeHandShapes'
         })
         .pipe(derequire())
         .pipe(buffer())

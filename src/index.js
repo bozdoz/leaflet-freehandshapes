@@ -11,6 +11,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         polyline : {
             color:'#5cb85c',
             opacity:1,
+            smoothFactor: 0,
             weight:2
         },
         simplify_tolerance : 0.005,
@@ -412,3 +413,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         util.addClass(map, 'leaflet-fhs-' + this.mode);
     }
 });
+
+L.freeHandShapes = function (options) {
+    return new L.FreeHandShapes(options);
+};

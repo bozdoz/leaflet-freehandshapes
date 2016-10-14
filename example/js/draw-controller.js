@@ -3,6 +3,7 @@ var map = require('./leaflet-map'),
 	group = new L.FeatureGroup(),
 	activetool = $('#draw-tools').find('input:checked').val(),
 	activetype = $('#draw-colors').find('input:checked').val(),
+	fhs = require('../../dist/leaflet-freehandshapes'),
 	turfworker = require('./turf-worker');
 
 for (var name in categories) {
