@@ -18,7 +18,7 @@
   "homepage": "https://github.com/bozdoz/Leaflet.FreeHandShapes",
   "scripts": {
     "build": "gulp build",
-    "release": "./build/publish.sh",
+    "release": "./build/publish.sh || true"
   },
   "repository": {
     "type": "git",
