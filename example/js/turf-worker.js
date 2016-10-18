@@ -112,8 +112,7 @@ function turfdiff (a, b) {
 						turf.buffer(a, 1), 
 		                turf.buffer(b, 1)
 					);
-				}
-				catch (e) {
+				} catch (e) {
 					console.error('turf failed', a, b, e);
 					return false;
 				}

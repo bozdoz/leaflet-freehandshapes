@@ -1,6 +1,6 @@
 {
   "name": "leaflet.freehandshapes",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Refactored Leaflet shape drawing plugin, forked from https://github.com/Wildhoney/Leaflet.FreeDraw",
   "main": "dist/leaflet.freehandshapes.js",
   "authors": [
