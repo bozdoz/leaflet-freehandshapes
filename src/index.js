@@ -56,12 +56,13 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         // Memorise the preferences so we know how to revert.
         this.defaultPreferences = {
             dragging: map.dragging._enabled,
-            touchZoom: map.touchZoom._enabled,
             doubleClickZoom: map.doubleClickZoom._enabled,
             scrollWheelZoom: map.scrollWheelZoom._enabled
         };
 
         this._events('on');
+
+        this.creating = false;
 
         this.setMode(this.mode || 'view');
     },
@@ -81,27 +82,30 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         map[ onoff ]('mousedown touchstart', this.mouseDown, this);
         map[ onoff ]('mousemove touchmove', this.mouseMove, this);
         map[ onoff ]('mouseup touchend', this.mouseUpLeave, this);
+        map[ onoff ]('zoomstart movestart', this.zoomMoveStart, this);
 
         // body events
         L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave.bind(this));
+    },
+
+    zoomMoveStart : function () {
+        if (!this.creating) return;
+        this.creating = false;
+        this.resetTracer();
     },
 
     mouseDown: function(event) {
         var RIGHT_CLICK = 2,
             originalEvent = event.originalEvent;
 
-        if (this.creating || 
-            originalEvent.button === RIGHT_CLICK ||
+        if (originalEvent.button === RIGHT_CLICK ||
             originalEvent.ctrlKey ||
             originalEvent.shiftKey) {
-            // 1. prevent double mousedown
-            // 2. prevent right click
-            // 3. allows ctrl key to toggle view mode
-            // 4. allows shift key to boxzoom
+            // 1. prevent right click
+            // 2. allows ctrl key to toggle view mode
+            // 3. allows shift key to boxzoom
             return;
         }
-
-        L.DomEvent.stop(originalEvent);
 
         if (L.Path.CANVAS) {
             // canvas bringToFront needs to reset the 
@@ -142,9 +146,8 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         this.creating = false;
 
         latlngs = this.getSimplified( this.tracer.getLatLngs() );
-
-        // remove tracer polyline by setting empty points
-        this.tracer.setLatLngs([]);
+        
+        this._map.removeLayer( this.tracer );
 
         // User has failed to drag their cursor 
         // enough to create a valid polygon (triangle).
@@ -339,13 +342,17 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     // helper methods
+
+    resetTracer : function () {
+        // remove tracer polyline by setting empty points
+        this.tracer.setLatLngs([]);
+    },
     
     setMapPermissions: function(method) {
         var map = this._map,
             preferences = this.defaultPreferences;
 
         map.dragging[method]();
-        map.touchZoom[method]();
         map.doubleClickZoom[method]();
         map.scrollWheelZoom[method]();
 
@@ -355,10 +362,6 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
             if (!preferences.dragging) {
                 map.dragging.disable();
-            }
-
-            if (!preferences.touchZoom) {
-                map.touchZoom.disable();
             }
 
             if (!preferences.doubleClickZoom) {

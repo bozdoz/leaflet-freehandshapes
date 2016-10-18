@@ -16879,11 +16879,11 @@
                     this._map = map;
                     this.defaultPreferences = {
                         dragging: map.dragging._enabled,
-                        touchZoom: map.touchZoom._enabled,
                         doubleClickZoom: map.doubleClickZoom._enabled,
                         scrollWheelZoom: map.scrollWheelZoom._enabled
                     };
                     this._events("on");
+                    this.creating = false;
                     this.setMode(this.mode || "view");
                 },
                 onRemove: function(map) {
@@ -16895,14 +16895,19 @@
                     map[onoff]("mousedown touchstart", this.mouseDown, this);
                     map[onoff]("mousemove touchmove", this.mouseMove, this);
                     map[onoff]("mouseup touchend", this.mouseUpLeave, this);
+                    map[onoff]("zoomstart movestart", this.zoomMoveStart, this);
                     L.DomEvent[onoff](document.body, "mouseleave", this.mouseUpLeave.bind(this));
+                },
+                zoomMoveStart: function() {
+                    if (!this.creating) return;
+                    this.creating = false;
+                    this.resetTracer();
                 },
                 mouseDown: function(event) {
                     var RIGHT_CLICK = 2, originalEvent = event.originalEvent;
-                    if (this.creating || originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
+                    if (originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
                         return;
                     }
-                    L.DomEvent.stop(originalEvent);
                     if (L.Path.CANVAS) {
                         this.tracer._leaflet_id = 0;
                         L.stamp(this.tracer);
@@ -16926,7 +16931,7 @@
                     if (!this.creating) return;
                     this.creating = false;
                     latlngs = this.getSimplified(this.tracer.getLatLngs());
-                    this.tracer.setLatLngs([]);
+                    this._map.removeLayer(this.tracer);
                     if (latlngs.length < 3) return;
                     if (this.mode === "add") {
                         this.addPolygon(latlngs);
@@ -17034,18 +17039,17 @@
                         }
                     }
                 },
+                resetTracer: function() {
+                    this.tracer.setLatLngs([]);
+                },
                 setMapPermissions: function(method) {
                     var map = this._map, preferences = this.defaultPreferences;
                     map.dragging[method]();
-                    map.touchZoom[method]();
                     map.doubleClickZoom[method]();
                     map.scrollWheelZoom[method]();
                     if (method === "enable") {
                         if (!preferences.dragging) {
                             map.dragging.disable();
-                        }
-                        if (!preferences.touchZoom) {
-                            map.touchZoom.disable();
                         }
                         if (!preferences.doubleClickZoom) {
                             map.doubleClickZoom.disable();

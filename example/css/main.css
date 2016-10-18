@@ -14,6 +14,7 @@ body, html, #mapid {
     left:0;
     color:white;
     pointer-events: none;
+    z-index: 999;
 }
 #draw {
     background:#222;
