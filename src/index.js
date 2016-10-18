@@ -64,12 +64,15 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         this.creating = false;
 
+        this._map.addLayer( this.tracer );
+
         this.setMode(this.mode || 'view');
     },
 
     onRemove: function (map) {
-        this.clearLayers();
+        this.setMapPermissions('enable');
         this._events('off');
+        this._map.removeLayer( this.tracer );
     },
 
     // events
@@ -92,13 +95,15 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         if (!this.creating) return;
         this.creating = false;
         this.resetTracer();
+        this.setMapPermissions('enable');
     },
 
     mouseDown: function(event) {
         var RIGHT_CLICK = 2,
             originalEvent = event.originalEvent;
 
-        if (originalEvent.button === RIGHT_CLICK ||
+        if (this.creating ||
+            originalEvent.button === RIGHT_CLICK ||
             originalEvent.ctrlKey ||
             originalEvent.shiftKey) {
             // 1. prevent right click
@@ -112,9 +117,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             // leaflet id before adding to map 
             this.tracer._leaflet_id = 0;
             L.stamp( this.tracer );
+            this._map.addLayer( this.tracer );
         } 
 
-        this._map.addLayer( this.tracer );
         this.tracer.setLatLngs([ event.latlng ]);
         
         if (!L.Path.CANVAS) {
@@ -146,8 +151,8 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         this.creating = false;
 
         latlngs = this.getSimplified( this.tracer.getLatLngs() );
-        
-        this._map.removeLayer( this.tracer );
+
+        this.resetTracer();
 
         // User has failed to drag their cursor 
         // enough to create a valid polygon (triangle).
