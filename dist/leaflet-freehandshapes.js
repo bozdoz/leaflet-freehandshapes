@@ -16884,11 +16884,13 @@
                     };
                     this._events("on");
                     this.creating = false;
+                    this._map.addLayer(this.tracer);
                     this.setMode(this.mode || "view");
                 },
                 onRemove: function(map) {
-                    this.clearLayers();
+                    this.setMapPermissions("enable");
                     this._events("off");
+                    this._map.removeLayer(this.tracer);
                 },
                 _events: function(onoff) {
                     var onoff = onoff || "on", map = this._map;
@@ -16902,17 +16904,18 @@
                     if (!this.creating) return;
                     this.creating = false;
                     this.resetTracer();
+                    this.setMapPermissions("enable");
                 },
                 mouseDown: function(event) {
                     var RIGHT_CLICK = 2, originalEvent = event.originalEvent;
-                    if (originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
+                    if (this.creating || originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
                         return;
                     }
                     if (L.Path.CANVAS) {
                         this.tracer._leaflet_id = 0;
                         L.stamp(this.tracer);
+                        this._map.addLayer(this.tracer);
                     }
-                    this._map.addLayer(this.tracer);
                     this.tracer.setLatLngs([ event.latlng ]);
                     if (!L.Path.CANVAS) {
                         this.tracer.bringToFront();
@@ -16931,7 +16934,7 @@
                     if (!this.creating) return;
                     this.creating = false;
                     latlngs = this.getSimplified(this.tracer.getLatLngs());
-                    this._map.removeLayer(this.tracer);
+                    this.resetTracer();
                     if (latlngs.length < 3) return;
                     if (this.mode === "add") {
                         this.addPolygon(latlngs);

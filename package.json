@@ -1,6 +1,6 @@
 {
   "name": "leaflet.freehandshapes",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Refactored Leaflet shape drawing plugin, forked from https://github.com/Wildhoney/Leaflet.FreeDraw",
   "main": "dist/leaflet.freehandshapes.js",
   "authors": [
@@ -17,7 +17,8 @@
   "license": "MIT",
   "homepage": "https://github.com/bozdoz/Leaflet.FreeHandShapes",
   "scripts": {
-    "build": "gulp build"
+    "build": "gulp build",
+    "release": "./build/publish.sh || true"
   },
   "repository": {
     "type": "git",
