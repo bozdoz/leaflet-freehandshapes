@@ -13,9 +13,9 @@ module.exports = {
     within: require('@turf/within'),
     concave: require('@turf/concave'),*/
     difference: require('@turf/difference'),
-    /*collect: require('@turf/collect'),
+    /*collect: require('@turf/collect'),*/
     flip: require('@turf/flip'),
-    simplify: require('@turf/simplify'),
+    /*simplify: require('@turf/simplify'),
     bezier: require('@turf/bezier'),
     tag: require('@turf/tag'),
     sample: require('@turf/sample'),
@@ -64,4 +64,28 @@ module.exports = {
     feature: helpers.feature,
     featureCollection: helpers.featureCollection,
     geometryCollection: helpers.geometryCollection*/
+};
+
+// add intersects
+module.exports.intersects = function (poly1, poly2) {
+    var jsts = require('jsts'),
+        geom1, geom2,
+        reader = new jsts.io.GeoJSONReader(),
+        a, b;
+
+    if (poly1.type === 'Feature') {
+        geom1 = poly1.geometry;
+    } else {
+        geom1 = poly1;
+    }
+    if (poly2.type === 'Feature') {
+        geom2 = poly2.geometry;
+    } else {
+        geom2 = poly2;
+    }
+
+    a = reader.read(JSON.stringify(geom1));
+    b = reader.read(JSON.stringify(geom2));
+
+    return !!a.intersects(b);
 };

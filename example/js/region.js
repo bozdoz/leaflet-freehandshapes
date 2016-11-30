@@ -1,8 +1,12 @@
 var region = L.geoJson(null, {
 	style : {
 		color:'black',
-		fillOpacity : 0
-	}
+		fillOpacity : 0,
+		noClip : true,
+		clickable : false,
+		smoothFactor : 0
+	},
+
 });
 
 $.ajax({

@@ -17,7 +17,7 @@ Forked from [L.FreeDraw](https://github.com/Wildhoney/Leaflet.FreeDraw)
 * ~~Support for Mobile~~
 * ~~Support for multiple instances~~
 * ~~Subtract mode~~
-* A built-in control (L.Control) for UI
+* A built-in control (L.Control) for UI (probably for each instance)
 * Compatibility with IE10
-* Update to Leaflet 1.0.1!
-* better stability with turfjs...
+* Update to Leaflet 1.0.2!
+* ~~better stability with turfjs...~~

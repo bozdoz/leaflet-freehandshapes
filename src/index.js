@@ -1,17 +1,21 @@
 var touch_extend = require('./leaflet-touch-extend'),
-    _turf = require('./turf');
+    _turf = require('./turf'),
+    asyncForLoop = require('./async-for-loop');
 
 L.FreeHandShapes = L.FeatureGroup.extend({
     options: {
         polygon: {
             className: 'leaflet-free-hand-shapes',
             smoothFactor: 1,
-            fillOpacity : 0.5
+            fillOpacity : 0.5,
+            noClip : true,
         },
         polyline : {
             color:'#5cb85c',
             opacity:1,
             smoothFactor: 0,
+            noClip : true,
+            clickable : false,
             weight:2
         },
         simplify_tolerance : 0.005,
@@ -75,6 +79,28 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         this._map.removeLayer( this.tracer );
     },
 
+    addLayer : function (layer, noevent) {
+        // conditionally fire layeradd event
+        if (noevent) {
+            if (this.hasLayer(layer)) {
+                return this;
+            }
+
+            if ('on' in layer) {
+                layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
+            }
+
+            L.LayerGroup.prototype.addLayer.call(this, layer);
+
+            if (this._popupContent && layer.bindPopup) {
+                layer.bindPopup(this._popupContent, this._popupOptions);
+            }
+            return this;
+        } 
+
+        return L.FeatureGroup.prototype.addLayer.call(this, layer);
+    },
+
     // events
 
     _events : function (onoff) {
@@ -83,18 +109,35 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         // map events
         map[ onoff ]('mousedown touchstart', this.mouseDown, this);
-        map[ onoff ]('mousemove touchmove', this.mouseMove, this);
-        map[ onoff ]('mouseup touchend', this.mouseUpLeave, this);
         map[ onoff ]('zoomstart movestart', this.zoomMoveStart, this);
 
         // body events
         L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave.bind(this));
     },
 
+    drawStartedEvents : function (onoff) {
+        var onoff = onoff || 'on',
+            map = this._map;
+
+        map[onoff]('mousemove touchmove', this.mouseMove, this);
+        map[onoff]('mouseup touchend', this.mouseUpLeave, this);
+    },
+
     zoomMoveStart : function () {
         if (!this.creating) return;
+        this.stopDraw();
+    },
+
+    startDraw : function () {
+        this.creating = true;
+        this.drawStartedEvents('on');
+        this.setMapPermissions('disable');
+    },
+
+    stopDraw : function () {
         this.creating = false;
         this.resetTracer();
+        this.drawStartedEvents('off');
         this.setMapPermissions('enable');
     },
 
@@ -103,12 +146,16 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             originalEvent = event.originalEvent;
 
         if (this.creating ||
+            (this.mode !== "add" &&
+            this.mode !== "subtract") ||
             originalEvent.button === RIGHT_CLICK ||
             originalEvent.ctrlKey ||
             originalEvent.shiftKey) {
-            // 1. prevent right click
-            // 2. allows ctrl key to toggle view mode
-            // 3. allows shift key to boxzoom
+            // 1. no mouse down if already creating
+            // 2. no mouse down if not in correct mode
+            // 3. prevent right click
+            // 4. allows ctrl key to toggle view mode
+            // 5. allows shift key to boxzoom
             return;
         }
 
@@ -127,32 +174,17 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             this.tracer.bringToFront();
         }
 
-        if (this.mode === 'add' || 
-            this.mode === 'subtract') {
-
-            this.creating = true;
-            this.setMapPermissions('disable');
-
-        }
-
+        this.startDraw();
     },
 
     mouseMove: function(event) {
-        if (!this.creating) return;
-
         this.tracer.addLatLng(event.latlng);
     },
 
     mouseUpLeave: function() {
-        var latlngs;
+        var latlngs = this.getSimplified( this.tracer.getLatLngs() );
 
-        if (!this.creating) return;
-
-        this.creating = false;
-
-        latlngs = this.getSimplified( this.tracer.getLatLngs() );
-
-        this.resetTracer();
+        this.stopDraw();
 
         // User has failed to drag their cursor 
         // enough to create a valid polygon (triangle).
@@ -160,13 +192,10 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
         // convert tracer polyline into polygon
         if (this.mode === 'add') {
-            this.addPolygon( latlngs );
+            this.addPolygon( latlngs, true );
         } else if (this.mode === 'subtract') {
-            this.subtractPolygon( latlngs );
+            this.subtractPolygon( latlngs, true );
         }
-
-        // enable map functionality
-        this.setMapPermissions('enable');
     },
 
     polygonClick: function(polygon, event) {
@@ -177,13 +206,14 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     // polygon creation methods
 
-    addPolygon: function(latlngs, force) {
+    addPolygon: function(latlngs, force, nomerge, noevent) {
         var latlngs = force ? latlngs : this.getSimplified(latlngs),
-            polyoptions = L.extend({}, this.options.polygon),
-            polygon = new this.Polygon(latlngs, polyoptions);
+            polyoptions = L.extend({}, this.options.polygon);
 
-        if (this.options.merge_polygons) {
-            this.merge(polygon);
+        if (this.options.merge_polygons && !nomerge) {
+            this.merge(latlngs, polyoptions);
+        } else {
+            this.addLayer( new this.Polygon(latlngs, polyoptions), noevent);
         }
 
         // todo:
@@ -194,13 +224,10 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             mouseout: resetHighlight.bind(this)
         });*/
 
-        this.addLayer( polygon );
-
-        return polygon;
     },
 
-    subtractPolygon : function (latlngs) {
-        var latlngs = this.getSimplified(latlngs),
+    subtractPolygon : function (latlngs, force) {
+        var latlngs = force ? latlngs : this.getSimplified(latlngs),
             polygon = new L.Polygon(latlngs);
 
         this.subtract(polygon);
@@ -240,30 +267,55 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         return latlngs;
     },
 
-    merge : function (polygon) {
+    merge : function (latlngs, polyoptions) {
         var polys = this.getLayers(),
-            newjson = polygon.toGeoJSON(),
-            fnc = this._tryturf.bind(this, 'union');
+            newjson = _turf.buffer(_turf.polygon(this.getCoordsFromLatLngs( latlngs )),0),
+            fnc = this._tryturf.bind(this, 'union'),
+            _this = this;
 
-        for (var i = 0, len = polys.length; i < len; i++) {
-            var poly = polys[i],
-                siblingjson = poly.toGeoJSON(),
-                union = fnc(newjson, siblingjson);
+        asyncForLoop(polys, process_fn, cb);
 
-            if (union === false ||
-                union.geometry.type === "MultiPolygon") {
+        function process_fn (poly) {
+            var siblingjson = poly.toGeoJSON(),
+                union;
+
+            if (!_turf.intersects(newjson, siblingjson)) {
+                return;
+            }
+
+            union = fnc(newjson, siblingjson);
+
+            if (union === false) {
+                _this.removeLayer( poly );
+                return;
+            } 
+
+            if (union.geometry.type === "MultiPolygon") {
                 // do not union non-contiguous polys
-                continue;
+                return;
             }
 
             // destroy the old, merge into new
-            this.removeLayer( poly );
+            _this.removeLayer( poly );
             newjson = union;
         }
 
-        // reset the new polygon with the 
-        // cumulatively unioned polygons
-        polygon.setLatLngs( this.getLatLngsFromJSON( newjson ) );
+        function cb () {
+            var _latlngs,
+                coords;
+
+            if (newjson.geometry.type === 'MultiPolygon') {
+                coords = newjson.geometry.coordinates;
+                for (var i = 0, len = coords.length; i < len; i++) {
+                    _this.addPolygon(_this.getLatLngsFromJSON( coords[i] )[0], true);
+                }
+                return;
+            }
+
+            _latlngs = _this.getLatLngsFromJSON( newjson );
+            _this.addLayer( new _this.Polygon(_latlngs, polyoptions) );
+        }
+
     },
 
     subtract : function (polygon) {
@@ -297,7 +349,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
                 for (var j = 0, lenj = coords.length; j < lenj; j++) {
                     var polyjson = _turf.polygon( coords[ j ] ),
                         latlngs = this.getLatLngsFromJSON( polyjson );
-                    this.addPolygon(latlngs, true);
+                    this.addPolygon(latlngs, true, true, true);
                 }
             } else {
                 // poly wasn't split: reset latlngs
@@ -307,8 +359,16 @@ L.FreeHandShapes = L.FeatureGroup.extend({
     },
 
     getLatLngsFromJSON : function (json) {
-        var coords = json.geometry.coordinates;
+        var coords = json.geometry ? json.geometry.coordinates : json;
         return L.GeoJSON.coordsToLatLngs(coords, 1, L.GeoJSON.coordsToLatLng);
+    },
+
+    getCoordsFromLatLngs : function (latlngs) {
+        var coords = [L.GeoJSON.latLngsToCoords( latlngs )];
+
+        coords[0].push(coords[0][0]);
+
+        return coords;
     },
 
     _tryturf : function (method, a, b) {
@@ -336,9 +396,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
                             _turf.buffer(a, 1), 
                             _turf.buffer(b, 1)
                             );
-                    } catch (_) {
+                    } catch (e) {
                         // give up
-                        console.error('turf failed', a, b);
+                        console.error('turf failed', a, b, e);
                         return false;
                     }
                 }

@@ -3,7 +3,13 @@ var map = require('./leaflet-map'),
 	group = new L.FeatureGroup(),
 	activetool = $('#draw-tools').find('input:checked').val(),
 	activetype = $('#draw-colors').find('input:checked').val(),
-	turfworker = require('./turf-worker');
+	turfwebworker = new Worker('./js/turf-web-worker.min.js'),
+	region = require('./region'),
+	regioncache;
+
+region.on('add', function () {
+	regioncache = turf.buffer(region.toGeoJSON(), 0.000001);
+});
 
 for (var name in categories) {
 	var obj = categories[name],
@@ -26,30 +32,76 @@ for (var name in categories) {
 
 	drawer.on('layeradd', function (data) {
 		var poly = data.layer;
-
-		subtractOtherLayers.call(this, data );
-
-		turfworker.intersectWithTile(poly);
+		
+		subtractOtherLayers.call(this, data);
+		intersectWithStudyArea( poly );
 	});
 
 	drawer.on('layersubtract', subtractOtherLayers);
+}
 
-	function subtractOtherLayers (data) {
-		var poly = data.layer,
-			_leaflet_id = poly._leaflet_id,
-			polys_alt_category = [];
+function intersectWithStudyArea (polya) {
 
-		// collect polygons
-		group.eachLayer(function (layer) {
-			if (layer === this) return;
-			polys_alt_category = polys_alt_category.concat( layer.getLayers() );
-		}, this);
-
-		// subtract all other layers
-		turfworker.subtract(polys_alt_category, poly);
-	}
+	turfwebworker.postMessage({
+		_leaflet_id : polya._leaflet_id,
+		primary : polya.toGeoJSON(),
+		mode : 'intersect',
+		secondary : regioncache,
+	});
 
 }
+
+function subtractOtherLayers (data) {
+	var polyb = data.layer.toGeoJSON();
+
+	// collect polygons
+	group.eachLayer(function (layer) {
+		if (layer === this) return;
+
+		layer.eachLayer(function (polya) {
+			// difference each layer
+			turfwebworker.postMessage({
+				_leaflet_id : polya._leaflet_id,
+				primary : polya.toGeoJSON(),
+				mode : 'difference',
+				secondary : polyb,
+			});
+		});
+	}, this);
+}
+
+// listen to worker
+turfwebworker.addEventListener('message', function (e) {
+	var data = e.data,
+		geojson = data.geojson, // or false
+		geometry = geojson ? geojson.geometry : null,
+		_leaflet_id = data._leaflet_id,
+		_layer = map._layers[ _leaflet_id ],
+		coords,
+		group;
+
+	if (_layer)	 {
+		if (!geometry) {
+			// removed
+			_layer.destroy();
+		} else if (geometry.type === "Polygon") {
+			// my word, it worked
+			_layer.setLatLngs( geometry.coordinates );
+		} else if (geometry.type === "MultiPolygon") {
+			group = _layer.getGroup();
+			coords = geometry.coordinates;
+
+			// destroy and make new singles from the multi
+			_layer.destroy();
+
+			for (var i = 0, len = coords.length; i < len; i++) {
+				var newpoly = coords[i];
+				// no simplify, no merge, no event
+				group.addPolygon(newpoly, true, true, true);
+			}
+		}
+	}
+});
 
 group.addTo(map);
 
@@ -178,7 +230,7 @@ group.handleToolAndType = function () {
 		// clear all shapes in each category and enable 'add' tool
 
 		group.clearPolygons();
-		$('#draw-tools').find('input').first().trigger('click');
+		$('#draw-tools').find('input').eq(1).trigger('click');
 	}
 };
 
