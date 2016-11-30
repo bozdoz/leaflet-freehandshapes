@@ -56,7 +56,13 @@ var map = require('./leaflet-map'),
 	group = new L.FeatureGroup(),
 	activetool = $('#draw-tools').find('input:checked').val(),
 	activetype = $('#draw-colors').find('input:checked').val(),
-	turfworker = require('./turf-worker');
+	turfwebworker = new Worker('./js/turf-web-worker.min.js'),
+	region = require('./region'),
+	regioncache;
+
+region.on('add', function () {
+	regioncache = turf.buffer(region.toGeoJSON(), 0.000001);
+});
 
 for (var name in categories) {
 	var obj = categories[name],
@@ -79,30 +85,76 @@ for (var name in categories) {
 
 	drawer.on('layeradd', function (data) {
 		var poly = data.layer;
-
-		subtractOtherLayers.call(this, data );
-
-		turfworker.intersectWithTile(poly);
+		
+		subtractOtherLayers.call(this, data);
+		intersectWithStudyArea( poly );
 	});
 
 	drawer.on('layersubtract', subtractOtherLayers);
+}
 
-	function subtractOtherLayers (data) {
-		var poly = data.layer,
-			_leaflet_id = poly._leaflet_id,
-			polys_alt_category = [];
+function intersectWithStudyArea (polya) {
 
-		// collect polygons
-		group.eachLayer(function (layer) {
-			if (layer === this) return;
-			polys_alt_category = polys_alt_category.concat( layer.getLayers() );
-		}, this);
-
-		// subtract all other layers
-		turfworker.subtract(polys_alt_category, poly);
-	}
+	turfwebworker.postMessage({
+		_leaflet_id : polya._leaflet_id,
+		primary : polya.toGeoJSON(),
+		mode : 'intersect',
+		secondary : regioncache,
+	});
 
 }
+
+function subtractOtherLayers (data) {
+	var polyb = data.layer.toGeoJSON();
+
+	// collect polygons
+	group.eachLayer(function (layer) {
+		if (layer === this) return;
+
+		layer.eachLayer(function (polya) {
+			// difference each layer
+			turfwebworker.postMessage({
+				_leaflet_id : polya._leaflet_id,
+				primary : polya.toGeoJSON(),
+				mode : 'difference',
+				secondary : polyb,
+			});
+		});
+	}, this);
+}
+
+// listen to worker
+turfwebworker.addEventListener('message', function (e) {
+	var data = e.data,
+		geojson = data.geojson, // or false
+		geometry = geojson ? geojson.geometry : null,
+		_leaflet_id = data._leaflet_id,
+		_layer = map._layers[ _leaflet_id ],
+		coords,
+		group;
+
+	if (_layer)	 {
+		if (!geometry) {
+			// removed
+			_layer.destroy();
+		} else if (geometry.type === "Polygon") {
+			// my word, it worked
+			_layer.setLatLngs( geometry.coordinates );
+		} else if (geometry.type === "MultiPolygon") {
+			group = _layer.getGroup();
+			coords = geometry.coordinates;
+
+			// destroy and make new singles from the multi
+			_layer.destroy();
+
+			for (var i = 0, len = coords.length; i < len; i++) {
+				var newpoly = coords[i];
+				// no simplify, no merge, no event
+				group.addPolygon(newpoly, true, true, true);
+			}
+		}
+	}
+});
 
 group.addTo(map);
 
@@ -231,7 +283,7 @@ group.handleToolAndType = function () {
 		// clear all shapes in each category and enable 'add' tool
 
 		group.clearPolygons();
-		$('#draw-tools').find('input').first().trigger('click');
+		$('#draw-tools').find('input').eq(1).trigger('click');
 	}
 };
 
@@ -268,7 +320,7 @@ if (typeof module === 'object' &&
     	$('#draw-tools').find('input').first().trigger('click');
     };
 }
-},{"./categories":1,"./leaflet-map":4,"./turf-worker":7}],4:[function(require,module,exports){
+},{"./categories":1,"./leaflet-map":4,"./region":5}],4:[function(require,module,exports){
 var baseURL = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     base = L.tileLayer( baseURL, {
             subdomains : 'abc'
@@ -311,8 +363,12 @@ if (typeof module === 'object' &&
 var region = L.geoJson(null, {
 	style : {
 		color:'black',
-		fillOpacity : 0
-	}
+		fillOpacity : 0,
+		noClip : true,
+		clickable : false,
+		smoothFactor : 0
+	},
+
 });
 
 $.ajax({
@@ -342,147 +398,4 @@ region.on('add', function () {
 
 window.map = map;
 window.drawcontroller = drawcontroller;
-},{"./controls":2,"./draw-controller":3,"./leaflet-map":4,"./region":5}],7:[function(require,module,exports){
-var turfworker = new function () {},
-	region = require('./region'),
-	regioncache;
-
-region.on('add', function () {
-	regioncache = turf.buffer(polygonToGeoJSON(region), 0.000001);
-});
-
-function getBufferedPoly (poly) {
-	try {
-		return turf.buffer(poly, 0.000001);
-	} catch (e) {
-		try {
-			return turf.buffer(poly, 0.1);
-		} catch (e) {
-			try {
-				return turf.buffer(poly, 1);
-			} catch (e) {
-				return false;
-			}
-		}
-	}
-}
-
-turfworker.intersectWithTile = function (poly) {
-	var jsona = getBufferedPoly(polygonToGeoJSON(poly)),
-		jsonb = jsona ? turf.intersect(regioncache, jsona) : null;
-	try {
-		handleNewJson(poly, jsona, jsonb);
-	} catch (e) {
-		return;
-	}
-};
-
-turfworker.subtract = function (polyarr, newpoly) {
-	/*
-	
-	polyarr (array of leaflet L.Polygon's)
-	newpoly (L.Polygon)
-
-	new poly is drawn, all existing polys (polyarr) 
-	must be cut with the new cookie cutter
-	*/
-	var polyarr = (polyarr || []).slice(), // copy
-		jsonb = polygonToGeoJSON( newpoly );
-
-	/* todo: test async for loop */
-	for (var i = 0, len = polyarr.length; i < len; i++) {
-		var poly = polyarr[i],
-			jsona = polygonToGeoJSON(poly),
-			diff = turfdiff(jsona, jsonb);
-
-		if (diff === false) {
-			// poly is invalid!
-			newpoly.destroy(); //?
-			break;
-		}
-
-		handleNewJson(poly, jsona, diff);
-	}
-};
-
-function handleNewJson (poly, json_old, json_new) {
-	if (json_new === undefined) {
-		// polygon has been overwritten
-		poly.destroy();
-		return; 
-	}
-
-	var same_type = (json_old.geometry.type === json_new.geometry.type);
-
-	if (same_type) {
-		// no polygon to multipolygon shenanigans
-		poly.setLatLngs( geoJSONToLatLngs( json_new ) );
-	} else {
-		// polygon got split into a multi
-		var coords = json_new.geometry.coordinates,
-			group = poly.getGroup();
-
-		// destroy and rebuild each?
-		poly.destroy();
-
-		/* todo: async for loop, test passing true/false */
-		for (var i = 0, len = coords.length; i < len; i++) {
-			var singlejson = turf.polygon(coords[i]);
-			// pass false so create event doesn't fire again
-			group.addPolygon( geoJSONToLatLngs( singlejson ), true );
-		}
-	}
-};
-
-function turfdiff (a, b) {
-	try {
-		return turf.difference(a, b);
-	} catch (e) {
-		try {
-			return turf.difference(
-				turf.buffer(a, 0.000001), 
-                turf.buffer(b, 0.000001)
-			);
-		} catch (e) {
-			try {
-				console.log('third try');
-				return turf.difference(
-					turf.buffer(a, 0.1), 
-	                turf.buffer(b, 0.1)
-				);
-			} catch (e) {
-				try {
-					console.log('last try');
-					return turf.difference(
-						turf.buffer(a, 1), 
-		                turf.buffer(b, 1)
-					);
-				} catch (e) {
-					console.error('turf failed', a, b, e);
-					return false;
-				}
-			}
-		}
-	}
-}
-
-function polygonToGeoJSON (poly) {
-	var geojson = poly.toGeoJSON();
-	if (geojson.features) {
-		return geojson.features[0];
-	}
-	return geojson;
-}
-
-function geoJSONToLatLngs (geojson) {
-	var coords = geojson.geometry.coordinates,
-		latlngs = L.GeoJSON.coordsToLatLngs(coords, 1, L.GeoJSON.coordsToLatLng);
-	return latlngs;
-};
-
-// define for Node module pattern loaders, including Browserify
-if (typeof module === 'object' && 
-    typeof module.exports === 'object') {
-    module.exports = turfworker;
-}
-},{"./region":5}]},{},[6]);
+},{"./controls":2,"./draw-controller":3,"./leaflet-map":4,"./region":5}]},{},[6]);

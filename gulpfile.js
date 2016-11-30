@@ -4,8 +4,7 @@ var gulp = require('gulp'),
     buffer = require('vinyl-buffer'),
     uglify = require('gulp-uglify'),
     browserSync = require('browser-sync').create(),
-    derequire = require('gulp-derequire'),
-    umd = require('gulp-umd');
+    derequire = require('gulp-derequire');
 
 gulp.task('default', ['watch']);
 
@@ -23,8 +22,7 @@ gulp.task('build-dev', function() {
             },
             preserveComments: 'license'
         }))
-        .pipe(gulp.dest('./dist/'))
-        .pipe(browserSync.reload({stream: true}));
+        .pipe(gulp.dest('./dist/'));
 });
 
 gulp.task('build', ['build-dev'], function() {
@@ -39,7 +37,12 @@ gulp.task('build', ['build-dev'], function() {
         .pipe(gulp.dest('./dist/'));
 });
 
-gulp.task('browserify-example', ['build-dev'], function() {
+gulp.task('browserify-web-worker', function() {
+    return browserifyTemplate('./example/js/turf-web-worker.js', 'turf-web-worker.min.js')
+        .pipe(gulp.dest('./example/js/'));
+});
+
+gulp.task('browserify-example', ['build-dev', 'browserify-web-worker'], function() {
     return browserifyTemplate('./example/js/script.js', 'main.js')
         .pipe(gulp.dest('./example/js/'))
         .pipe(browserSync.reload({stream: true}));

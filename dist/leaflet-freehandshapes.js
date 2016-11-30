@@ -68,9 +68,9 @@
                 };
             }
         }, {
-            "@turf/helpers": 3,
-            "geojson-normalize": 5,
-            jsts: 6
+            "@turf/helpers": 4,
+            "geojson-normalize": 7,
+            jsts: 8
         } ],
         2: [ function(_dereq_, module, exports) {
             var jsts = _dereq_("jsts");
@@ -106,9 +106,21 @@
                 };
             };
         }, {
-            jsts: 6
+            jsts: 8
         } ],
         3: [ function(_dereq_, module, exports) {
+            var coordEach = _dereq_("@turf/meta").coordEach;
+            module.exports = function flip(input) {
+                input = JSON.parse(JSON.stringify(input));
+                coordEach(input, function(coord) {
+                    coord.reverse();
+                });
+                return input;
+            };
+        }, {
+            "@turf/meta": 5
+        } ],
+        4: [ function(_dereq_, module, exports) {
             function feature(geometry, properties) {
                 return {
                     type: "Feature",
@@ -225,7 +237,102 @@
                 return distance / factor * 57.2958;
             };
         }, {} ],
-        4: [ function(_dereq_, module, exports) {
+        5: [ function(_dereq_, module, exports) {
+            function coordEach(layer, callback, excludeWrapCoord) {
+                var i, j, k, g, l, geometry, stopG, coords, geometryMaybeCollection, wrapShrink = 0, isGeometryCollection, isFeatureCollection = layer.type === "FeatureCollection", isFeature = layer.type === "Feature", stop = isFeatureCollection ? layer.features.length : 1;
+                for (i = 0; i < stop; i++) {
+                    geometryMaybeCollection = isFeatureCollection ? layer.features[i].geometry : isFeature ? layer.geometry : layer;
+                    isGeometryCollection = geometryMaybeCollection.type === "GeometryCollection";
+                    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+                    for (g = 0; g < stopG; g++) {
+                        geometry = isGeometryCollection ? geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+                        coords = geometry.coordinates;
+                        wrapShrink = excludeWrapCoord && (geometry.type === "Polygon" || geometry.type === "MultiPolygon") ? 1 : 0;
+                        if (geometry.type === "Point") {
+                            callback(coords);
+                        } else if (geometry.type === "LineString" || geometry.type === "MultiPoint") {
+                            for (j = 0; j < coords.length; j++) callback(coords[j]);
+                        } else if (geometry.type === "Polygon" || geometry.type === "MultiLineString") {
+                            for (j = 0; j < coords.length; j++) for (k = 0; k < coords[j].length - wrapShrink; k++) callback(coords[j][k]);
+                        } else if (geometry.type === "MultiPolygon") {
+                            for (j = 0; j < coords.length; j++) for (k = 0; k < coords[j].length; k++) for (l = 0; l < coords[j][k].length - wrapShrink; l++) callback(coords[j][k][l]);
+                        } else if (geometry.type === "GeometryCollection") {
+                            for (j = 0; j < geometry.geometries.length; j++) coordEach(geometry.geometries[j], callback, excludeWrapCoord);
+                        } else {
+                            throw new Error("Unknown Geometry Type");
+                        }
+                    }
+                }
+            }
+            module.exports.coordEach = coordEach;
+            function coordReduce(layer, callback, memo, excludeWrapCoord) {
+                coordEach(layer, function(coord) {
+                    memo = callback(memo, coord);
+                }, excludeWrapCoord);
+                return memo;
+            }
+            module.exports.coordReduce = coordReduce;
+            function propEach(layer, callback) {
+                var i;
+                switch (layer.type) {
+                  case "FeatureCollection":
+                    for (i = 0; i < layer.features.length; i++) {
+                        callback(layer.features[i].properties, i);
+                    }
+                    break;
+
+                  case "Feature":
+                    callback(layer.properties, 0);
+                    break;
+                }
+            }
+            module.exports.propEach = propEach;
+            function propReduce(layer, callback, memo) {
+                propEach(layer, function(prop, i) {
+                    memo = callback(memo, prop, i);
+                });
+                return memo;
+            }
+            module.exports.propReduce = propReduce;
+            function featureEach(layer, callback) {
+                if (layer.type === "Feature") {
+                    callback(layer, 0);
+                } else if (layer.type === "FeatureCollection") {
+                    for (var i = 0; i < layer.features.length; i++) {
+                        callback(layer.features[i], i);
+                    }
+                }
+            }
+            module.exports.featureEach = featureEach;
+            function coordAll(layer) {
+                var coords = [];
+                coordEach(layer, function(coord) {
+                    coords.push(coord);
+                });
+                return coords;
+            }
+            module.exports.coordAll = coordAll;
+            function geomEach(layer, callback) {
+                var i, j, g, geometry, stopG, geometryMaybeCollection, isGeometryCollection, isFeatureCollection = layer.type === "FeatureCollection", isFeature = layer.type === "Feature", stop = isFeatureCollection ? layer.features.length : 1;
+                for (i = 0; i < stop; i++) {
+                    geometryMaybeCollection = isFeatureCollection ? layer.features[i].geometry : isFeature ? layer.geometry : layer;
+                    isGeometryCollection = geometryMaybeCollection.type === "GeometryCollection";
+                    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+                    for (g = 0; g < stopG; g++) {
+                        geometry = isGeometryCollection ? geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+                        if (geometry.type === "Point" || geometry.type === "LineString" || geometry.type === "MultiPoint" || geometry.type === "Polygon" || geometry.type === "MultiLineString" || geometry.type === "MultiPolygon") {
+                            callback(geometry);
+                        } else if (geometry.type === "GeometryCollection") {
+                            for (j = 0; j < geometry.geometries.length; j++) callback(geometry.geometries[j]);
+                        } else {
+                            throw new Error("Unknown Geometry Type");
+                        }
+                    }
+                }
+            }
+            module.exports.geomEach = geomEach;
+        }, {} ],
+        6: [ function(_dereq_, module, exports) {
             var jsts = _dereq_("jsts");
             module.exports = function() {
                 var reader = new jsts.io.GeoJSONReader();
@@ -242,9 +349,9 @@
                 };
             };
         }, {
-            jsts: 6
+            jsts: 8
         } ],
-        5: [ function(_dereq_, module, exports) {
+        7: [ function(_dereq_, module, exports) {
             module.exports = normalize;
             var types = {
                 Point: "geometry",
@@ -280,7 +387,7 @@
                 }
             }
         }, {} ],
-        6: [ function(_dereq_, module, exports) {
+        8: [ function(_dereq_, module, exports) {
             // Licenses:
             // https://github.com/bjornharrtell/jsts/blob/master/LICENSE_EDLv1.txt
             // https://github.com/bjornharrtell/jsts/blob/master/LICENSE_EPLv1.txt
@@ -16833,19 +16940,48 @@
                 t.simplify = Do, t.triangulate = Ao;
             });
         }, {} ],
-        7: [ function(_dereq_, module, exports) {
-            var touch_extend = _dereq_("./leaflet-touch-extend"), _turf = _dereq_("./turf");
+        9: [ function(_dereq_, module, exports) {
+            function asyncForLoop(arr, process_fn, cb_fn) {
+                // Copyright 2009 Nicholas C. Zakas. All rights reserved.
+                // MIT Licensed
+                // http://www.nczonline.net/blog/2009/08/11/timed-array-processing-in-javascript/
+                var i = 0, len = arr.length, loop_finished = cb_fn || function() {};
+                if (!len) {
+                    loop_finished();
+                    return;
+                }
+                window.setTimeout(function() {
+                    var start = +new Date();
+                    do {
+                        process_fn.call(this, arr[i], i);
+                    } while (++i < len && +new Date() - start < 50);
+                    if (i < len) {
+                        window.setTimeout(arguments.callee, 25);
+                    } else {
+                        loop_finished();
+                    }
+                }, 25);
+            }
+            if (typeof module === "object" && typeof module.exports === "object") {
+                module.exports = asyncForLoop;
+            }
+        }, {} ],
+        10: [ function(_dereq_, module, exports) {
+            var touch_extend = _dereq_("./leaflet-touch-extend"), _turf = _dereq_("./turf"), asyncForLoop = _dereq_("./async-for-loop");
             L.FreeHandShapes = L.FeatureGroup.extend({
                 options: {
                     polygon: {
                         className: "leaflet-free-hand-shapes",
                         smoothFactor: 1,
-                        fillOpacity: .5
+                        fillOpacity: .5,
+                        noClip: true
                     },
                     polyline: {
                         color: "#5cb85c",
                         opacity: 1,
                         smoothFactor: 0,
+                        noClip: true,
+                        clickable: false,
                         weight: 2
                     },
                     simplify_tolerance: .005,
@@ -16892,23 +17028,51 @@
                     this._events("off");
                     this._map.removeLayer(this.tracer);
                 },
+                addLayer: function(layer, noevent) {
+                    if (noevent) {
+                        if (this.hasLayer(layer)) {
+                            return this;
+                        }
+                        if ("on" in layer) {
+                            layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
+                        }
+                        L.LayerGroup.prototype.addLayer.call(this, layer);
+                        if (this._popupContent && layer.bindPopup) {
+                            layer.bindPopup(this._popupContent, this._popupOptions);
+                        }
+                        return this;
+                    }
+                    return L.FeatureGroup.prototype.addLayer.call(this, layer);
+                },
                 _events: function(onoff) {
                     var onoff = onoff || "on", map = this._map;
                     map[onoff]("mousedown touchstart", this.mouseDown, this);
-                    map[onoff]("mousemove touchmove", this.mouseMove, this);
-                    map[onoff]("mouseup touchend", this.mouseUpLeave, this);
                     map[onoff]("zoomstart movestart", this.zoomMoveStart, this);
                     L.DomEvent[onoff](document.body, "mouseleave", this.mouseUpLeave.bind(this));
                 },
+                drawStartedEvents: function(onoff) {
+                    var onoff = onoff || "on", map = this._map;
+                    map[onoff]("mousemove touchmove", this.mouseMove, this);
+                    map[onoff]("mouseup touchend", this.mouseUpLeave, this);
+                },
                 zoomMoveStart: function() {
                     if (!this.creating) return;
+                    this.stopDraw();
+                },
+                startDraw: function() {
+                    this.creating = true;
+                    this.drawStartedEvents("on");
+                    this.setMapPermissions("disable");
+                },
+                stopDraw: function() {
                     this.creating = false;
                     this.resetTracer();
+                    this.drawStartedEvents("off");
                     this.setMapPermissions("enable");
                 },
                 mouseDown: function(event) {
                     var RIGHT_CLICK = 2, originalEvent = event.originalEvent;
-                    if (this.creating || originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
+                    if (this.creating || this.mode !== "add" && this.mode !== "subtract" || originalEvent.button === RIGHT_CLICK || originalEvent.ctrlKey || originalEvent.shiftKey) {
                         return;
                     }
                     if (L.Path.CANVAS) {
@@ -16920,44 +17084,36 @@
                     if (!L.Path.CANVAS) {
                         this.tracer.bringToFront();
                     }
-                    if (this.mode === "add" || this.mode === "subtract") {
-                        this.creating = true;
-                        this.setMapPermissions("disable");
-                    }
+                    this.startDraw();
                 },
                 mouseMove: function(event) {
-                    if (!this.creating) return;
                     this.tracer.addLatLng(event.latlng);
                 },
                 mouseUpLeave: function() {
-                    var latlngs;
-                    if (!this.creating) return;
-                    this.creating = false;
-                    latlngs = this.getSimplified(this.tracer.getLatLngs());
-                    this.resetTracer();
+                    var latlngs = this.getSimplified(this.tracer.getLatLngs());
+                    this.stopDraw();
                     if (latlngs.length < 3) return;
                     if (this.mode === "add") {
-                        this.addPolygon(latlngs);
+                        this.addPolygon(latlngs, true);
                     } else if (this.mode === "subtract") {
-                        this.subtractPolygon(latlngs);
+                        this.subtractPolygon(latlngs, true);
                     }
-                    this.setMapPermissions("enable");
                 },
                 polygonClick: function(polygon, event) {
                     if (this.mode === "delete") {
                         this.removeLayer(polygon);
                     }
                 },
-                addPolygon: function(latlngs, force) {
-                    var latlngs = force ? latlngs : this.getSimplified(latlngs), polyoptions = L.extend({}, this.options.polygon), polygon = new this.Polygon(latlngs, polyoptions);
-                    if (this.options.merge_polygons) {
-                        this.merge(polygon);
+                addPolygon: function(latlngs, force, nomerge, noevent) {
+                    var latlngs = force ? latlngs : this.getSimplified(latlngs), polyoptions = L.extend({}, this.options.polygon);
+                    if (this.options.merge_polygons && !nomerge) {
+                        this.merge(latlngs, polyoptions);
+                    } else {
+                        this.addLayer(new this.Polygon(latlngs, polyoptions), noevent);
                     }
-                    this.addLayer(polygon);
-                    return polygon;
                 },
-                subtractPolygon: function(latlngs) {
-                    var latlngs = this.getSimplified(latlngs), polygon = new L.Polygon(latlngs);
+                subtractPolygon: function(latlngs, force) {
+                    var latlngs = force ? latlngs : this.getSimplified(latlngs), polygon = new L.Polygon(latlngs);
                     this.subtract(polygon);
                     this.fire("layersubtract", {
                         layer: polygon
@@ -16982,17 +17138,37 @@
                     }
                     return latlngs;
                 },
-                merge: function(polygon) {
-                    var polys = this.getLayers(), newjson = polygon.toGeoJSON(), fnc = this._tryturf.bind(this, "union");
-                    for (var i = 0, len = polys.length; i < len; i++) {
-                        var poly = polys[i], siblingjson = poly.toGeoJSON(), union = fnc(newjson, siblingjson);
-                        if (union === false || union.geometry.type === "MultiPolygon") {
-                            continue;
+                merge: function(latlngs, polyoptions) {
+                    var polys = this.getLayers(), newjson = _turf.buffer(_turf.polygon(this.getCoordsFromLatLngs(latlngs)), 0), fnc = this._tryturf.bind(this, "union"), _this = this;
+                    asyncForLoop(polys, process_fn, cb);
+                    function process_fn(poly) {
+                        var siblingjson = poly.toGeoJSON(), union;
+                        if (!_turf.intersects(newjson, siblingjson)) {
+                            return;
                         }
-                        this.removeLayer(poly);
+                        union = fnc(newjson, siblingjson);
+                        if (union === false) {
+                            _this.removeLayer(poly);
+                            return;
+                        }
+                        if (union.geometry.type === "MultiPolygon") {
+                            return;
+                        }
+                        _this.removeLayer(poly);
                         newjson = union;
                     }
-                    polygon.setLatLngs(this.getLatLngsFromJSON(newjson));
+                    function cb() {
+                        var _latlngs, coords;
+                        if (newjson.geometry.type === "MultiPolygon") {
+                            coords = newjson.geometry.coordinates;
+                            for (var i = 0, len = coords.length; i < len; i++) {
+                                _this.addPolygon(_this.getLatLngsFromJSON(coords[i])[0], true);
+                            }
+                            return;
+                        }
+                        _latlngs = _this.getLatLngsFromJSON(newjson);
+                        _this.addLayer(new _this.Polygon(_latlngs, polyoptions));
+                    }
                 },
                 subtract: function(polygon) {
                     var polys = this.getLayers(), newjson = polygon.toGeoJSON(), fnc = this._tryturf.bind(this, "difference");
@@ -17010,7 +17186,7 @@
                             var coords = diff.geometry.coordinates;
                             for (var j = 0, lenj = coords.length; j < lenj; j++) {
                                 var polyjson = _turf.polygon(coords[j]), latlngs = this.getLatLngsFromJSON(polyjson);
-                                this.addPolygon(latlngs, true);
+                                this.addPolygon(latlngs, true, true, true);
                             }
                         } else {
                             poly.setLatLngs(this.getLatLngsFromJSON(diff));
@@ -17018,8 +17194,13 @@
                     }
                 },
                 getLatLngsFromJSON: function(json) {
-                    var coords = json.geometry.coordinates;
+                    var coords = json.geometry ? json.geometry.coordinates : json;
                     return L.GeoJSON.coordsToLatLngs(coords, 1, L.GeoJSON.coordsToLatLng);
+                },
+                getCoordsFromLatLngs: function(latlngs) {
+                    var coords = [ L.GeoJSON.latLngsToCoords(latlngs) ];
+                    coords[0].push(coords[0][0]);
+                    return coords;
                 },
                 _tryturf: function(method, a, b) {
                     var fnc = _turf[method];
@@ -17034,8 +17215,8 @@
                             } catch (_) {
                                 try {
                                     return fnc(_turf.buffer(a, 1), _turf.buffer(b, 1));
-                                } catch (_) {
-                                    console.error("turf failed", a, b);
+                                } catch (e) {
+                                    console.error("turf failed", a, b, e);
                                     return false;
                                 }
                             }
@@ -17101,10 +17282,11 @@
                 return new L.FreeHandShapes(options);
             };
         }, {
-            "./leaflet-touch-extend": 8,
-            "./turf": 9
+            "./async-for-loop": 9,
+            "./leaflet-touch-extend": 11,
+            "./turf": 12
         } ],
-        8: [ function(_dereq_, module, exports) {
+        11: [ function(_dereq_, module, exports) {
             L.Map.mergeOptions({
                 touchExtend: true
             });
@@ -17162,19 +17344,38 @@
             });
             L.Map.addInitHook("addHandler", "touchExtend", L.Map.TouchExtend);
         }, {} ],
-        9: [ function(_dereq_, module, exports) {
+        12: [ function(_dereq_, module, exports) {
             var helpers = _dereq_("@turf/helpers");
             module.exports = {
                 difference: _dereq_("@turf/difference"),
+                flip: _dereq_("@turf/flip"),
                 buffer: _dereq_("@turf/buffer"),
                 union: _dereq_("@turf/union"),
                 polygon: helpers.polygon
             };
+            module.exports.intersects = function(poly1, poly2) {
+                var jsts = _dereq_("jsts"), geom1, geom2, reader = new jsts.io.GeoJSONReader(), a, b;
+                if (poly1.type === "Feature") {
+                    geom1 = poly1.geometry;
+                } else {
+                    geom1 = poly1;
+                }
+                if (poly2.type === "Feature") {
+                    geom2 = poly2.geometry;
+                } else {
+                    geom2 = poly2;
+                }
+                a = reader.read(JSON.stringify(geom1));
+                b = reader.read(JSON.stringify(geom2));
+                return !!a.intersects(b);
+            };
         }, {
             "@turf/buffer": 1,
             "@turf/difference": 2,
-            "@turf/helpers": 3,
-            "@turf/union": 4
+            "@turf/flip": 3,
+            "@turf/helpers": 4,
+            "@turf/union": 6,
+            jsts: 8
         } ]
-    }, {}, [ 7 ])(7);
+    }, {}, [ 10 ])(10);
 });
