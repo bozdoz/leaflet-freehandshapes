@@ -3,7 +3,8 @@ var touch_extend = require('./leaflet-touch-extend'),
     asyncForLoop = require('./async-for-loop');
 
 L.FreeHandShapes = L.FeatureGroup.extend({
-    options: {
+    version : "0.3.0",
+    options : {
         polygon: {
             className: 'leaflet-free-hand-shapes',
             smoothFactor: 1,
@@ -81,19 +82,29 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     addLayer : function (layer, noevent) {
         // conditionally fire layeradd event
+        // from parent L.FeatureGroup
         if (noevent) {
+            
             if (this.hasLayer(layer)) {
                 return this;
             }
 
-            if ('on' in layer) {
-                layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
-            }
+            if (L.version.substr(0,1) === "0") {
+                // version 0
+                if ('on' in layer) {
+                    layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
+                }
 
-            L.LayerGroup.prototype.addLayer.call(this, layer);
+                L.LayerGroup.prototype.addLayer.call(this, layer);
 
-            if (this._popupContent && layer.bindPopup) {
-                layer.bindPopup(this._popupContent, this._popupOptions);
+                if (this._popupContent && layer.bindPopup) {
+                    layer.bindPopup(this._popupContent, this._popupOptions);
+                }
+            } else {
+                // version 1 or higher
+                layer.addEventParent(this);
+
+                L.LayerGroup.prototype.addLayer.call(this, layer);
             }
             return this;
         } 

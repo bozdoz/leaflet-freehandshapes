@@ -16969,6 +16969,7 @@
         10: [ function(_dereq_, module, exports) {
             var touch_extend = _dereq_("./leaflet-touch-extend"), _turf = _dereq_("./turf"), asyncForLoop = _dereq_("./async-for-loop");
             L.FreeHandShapes = L.FeatureGroup.extend({
+                version: "0.3.0",
                 options: {
                     polygon: {
                         className: "leaflet-free-hand-shapes",
@@ -17033,12 +17034,17 @@
                         if (this.hasLayer(layer)) {
                             return this;
                         }
-                        if ("on" in layer) {
-                            layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
-                        }
-                        L.LayerGroup.prototype.addLayer.call(this, layer);
-                        if (this._popupContent && layer.bindPopup) {
-                            layer.bindPopup(this._popupContent, this._popupOptions);
+                        if (L.version.substr(0, 1) === "0") {
+                            if ("on" in layer) {
+                                layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
+                            }
+                            L.LayerGroup.prototype.addLayer.call(this, layer);
+                            if (this._popupContent && layer.bindPopup) {
+                                layer.bindPopup(this._popupContent, this._popupOptions);
+                            }
+                        } else {
+                            layer.addEventParent(this);
+                            L.LayerGroup.prototype.addLayer.call(this, layer);
                         }
                         return this;
                     }
