@@ -39,6 +39,7 @@ drawer.setMode('delete');
 L.FreeHandShapes takes the following options:
 
 * `polygon` (object) : Same options as [L.Polygon](http://leafletjs.com/reference-1.0.2.html#polygon)
+
 **Default:**
 ```
 {
@@ -49,6 +50,7 @@ L.FreeHandShapes takes the following options:
 }
 ```
 * `polyline` (object) : Same options as [L.Polyline](http://leafletjs.com/reference-1.0.2.html#polyline)
+
 **Default:**
 ```
 {
@@ -61,9 +63,11 @@ L.FreeHandShapes takes the following options:
 }
 ```
 * `simplify_tolerance` (float) : how much to simplify the polygon (argument given to [L.LineUtil.simplify](https://github.com/Leaflet/Leaflet/blob/master/src/geometry/LineUtil.js)). 
+
 **Default:**
 `0.005`
 * `merge_polygons` (boolean)
+
 **Default:**
 `true
 
