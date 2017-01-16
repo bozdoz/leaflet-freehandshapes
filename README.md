@@ -41,7 +41,7 @@ L.FreeHandShapes takes the following options:
 * `polygon` (object) : Same options as [L.Polygon](http://leafletjs.com/reference-1.0.2.html#polygon)
 
 **Default:**
-```
+```javascript
 {
     className: 'leaflet-free-hand-shapes',
     smoothFactor: 1,
@@ -52,7 +52,7 @@ L.FreeHandShapes takes the following options:
 * `polyline` (object) : Same options as [L.Polyline](http://leafletjs.com/reference-1.0.2.html#polyline)
 
 **Default:**
-```
+```javascript
 {
     color:'#5cb85c',
     opacity:1,
