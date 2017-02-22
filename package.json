@@ -1,11 +1,16 @@
 {
-  "name": "leaflet.freehandshapes",
+  "name": "leaflet-freehandshapes",
   "version": "0.3.0",
   "description": "Refactored Leaflet plugin for drawing freehand polygons, with support for mobile",
   "main": "dist/leaflet.freehandshapes.js",
-  "authors": [
-    "Benjamin J DeLong <bdelong@alces.ca>"
+  "files" : [
+    "dist/*",
+    "src/*"
   ],
+  "author": {
+    "name" : "Benjamin J DeLong",
+    "email" : "bdelong@alces.ca"
+  },
   "keywords": [
     "leaflet",
     "freehandshapes",
