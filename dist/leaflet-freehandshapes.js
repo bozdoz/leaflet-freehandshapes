@@ -17009,7 +17009,7 @@
                             _this.polygonClick(this, e);
                         }
                     });
-                    this.tracer = L.polyline([], L.extend({}, this.options.polyline));
+                    this.tracer = L.polyline([ [ 0, 0 ] ], L.extend({}, this.options.polyline));
                 },
                 onAdd: function(map) {
                     var _this = this;
@@ -17230,7 +17230,7 @@
                     }
                 },
                 resetTracer: function() {
-                    this.tracer.setLatLngs([]);
+                    this.tracer.setLatLngs([ [ 0, 0 ] ]);
                 },
                 setMapPermissions: function(method) {
                     var map = this._map, preferences = this.defaultPreferences;
@@ -17300,7 +17300,6 @@
                 initialize: function(map) {
                     this._map = map;
                     this._container = map._container;
-                    this._pane = map._panes.overlayPane;
                 },
                 addHooks: function() {
                     L.DomEvent.on(this._container, "touchstart", this._onTouchStart, this);

@@ -50,7 +50,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             }
         });
 
-        this.tracer = L.polyline([], L.extend({}, this.options.polyline));
+        this.tracer = L.polyline([[0,0]], L.extend({}, this.options.polyline));
     },
 
     onAdd: function(map) {
@@ -421,7 +421,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     resetTracer : function () {
         // remove tracer polyline by setting empty points
-        this.tracer.setLatLngs([]);
+        this.tracer.setLatLngs([[0,0]]);
     },
     
     setMapPermissions: function(method) {
