@@ -15,6 +15,13 @@ This is a Leaflet plugin for adding/manipulating polygons from a Leaflet map.  I
 
 ![Screenshot](http://i.imgur.com/5Zis4Q4.png)
 
+## Installation
+
+via npm:
+```
+npm install leaflet-freehandshapes --save
+```
+
 ## Usage
 
 ```javascript
