@@ -1,15 +1,15 @@
 {
   "name": "leaflet-freehandshapes",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Refactored Leaflet plugin for drawing freehand polygons, with support for mobile",
   "main": "dist/leaflet-freehandshapes.js",
-  "files" : [
+  "files": [
     "dist/*",
     "src/*"
   ],
   "author": {
-    "name" : "Benjamin J DeLong",
-    "email" : "bdelong@alces.ca"
+    "name": "Benjamin J DeLong",
+    "email": "bdelong@alces.ca"
   },
   "keywords": [
     "leaflet",
@@ -22,7 +22,8 @@
   "license": "MIT",
   "homepage": "https://github.com/bozdoz/Leaflet.FreeHandShapes",
   "scripts": {
-    "build": "gulp build",
+    "start": "webpack-dev-server --open",
+    "build": "webpack",
     "release": "./publish.sh || true"
   },
   "repository": {
@@ -35,13 +36,20 @@
   "dependencies": {},
   "devDependencies": {
     "@turf/turf": "^3.5.2",
+    "babel-core": "^6.25.0",
+    "babel-loader": "^7.1.1",
+    "babel-preset-env": "^1.6.0",
     "browser-sync": "^2.16.0",
     "browserify": "^13.1.0",
+    "concavehull": "^0.1.6",
     "gulp": "^3.9.1",
     "gulp-derequire": "^2.1.0",
     "gulp-uglify": "^2.0.0",
-    "leaflet": "^1.0.3",
+    "html-webpack-plugin": "^2.30.1",
+    "leaflet": "^1.2.0",
     "vinyl-buffer": "^1.0.0",
-    "vinyl-source-stream": "^1.1.0"
+    "vinyl-source-stream": "^1.1.0",
+    "webpack": "^3.5.4",
+    "webpack-dev-server": "^2.7.1"
   }
 }
