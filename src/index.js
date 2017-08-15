@@ -1,9 +1,10 @@
 var touch_extend = require('./leaflet-touch-extend'),
     _turf = require('./turf'),
-    asyncForLoop = require('./async-for-loop');
+    asyncForLoop = require('./async-for-loop'),
+    ConcaveHull = require('concavehull');
 
-L.FreeHandShapes = L.FeatureGroup.extend({
-    version : "0.3.0",
+L.FreeHandShapes = L.LayerGroup.extend({
+    version : "0.3.3",
     options : {
         polygon: {
             className: 'leaflet-free-hand-shapes',
@@ -19,8 +20,9 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             clickable : false,
             weight:2
         },
-        simplify_tolerance : 0.005,
-        merge_polygons : true
+        simplify_tolerance: 0.005,
+        merge_polygons: true,
+        concave_polygons: true
     },
 
     initialize: function(options) {
@@ -50,7 +52,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             }
         });
 
-        this.tracer = L.polyline([], L.extend({}, this.options.polyline));
+        this.tracer = L.polyline([[0,0]], L.extend({}, this.options.polyline));
     },
 
     onAdd: function(map) {
@@ -65,7 +67,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             scrollWheelZoom: map.scrollWheelZoom._enabled
         };
 
-        this._events('on');
+        this.__events('on');
 
         this.creating = false;
 
@@ -76,51 +78,41 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     onRemove: function (map) {
         this.setMapPermissions('enable');
-        this._events('off');
+        this.__events('off');
         this._map.removeLayer( this.tracer );
+    },
+
+    getEvents: function () {
+        return {
+            mousedown: this.mouseDown,
+            touchstart: this.mouseDown,
+            zoomstart: this.zoomMoveStart,
+            movestart: this.zoomMoveStart
+        };
     },
 
     addLayer : function (layer, noevent) {
         // conditionally fire layeradd event
-        // from parent L.FeatureGroup
+        // from parent L.LayerGroup
+        L.LayerGroup.prototype.addLayer.call(this, layer);
+        
         if (noevent) {
-            
-            if (this.hasLayer(layer)) {
-                return this;
-            }
-
-            if (L.version.substr(0,1) === "0") {
-                // version 0
-                if ('on' in layer) {
-                    layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
-                }
-
-                L.LayerGroup.prototype.addLayer.call(this, layer);
-
-                if (this._popupContent && layer.bindPopup) {
-                    layer.bindPopup(this._popupContent, this._popupOptions);
-                }
-            } else {
-                // version 1 or higher
-                layer.addEventParent(this);
-
-                L.LayerGroup.prototype.addLayer.call(this, layer);
-            }
             return this;
         } 
-
-        return L.FeatureGroup.prototype.addLayer.call(this, layer);
+        return this.fire('layeradd', {layer: layer});
     },
 
     // events
 
-    _events : function (onoff) {
+    __events : function (onoff) {
         var onoff = onoff || 'on',
             map = this._map;
 
         // map events
-        map[ onoff ]('mousedown touchstart', this.mouseDown, this);
-        map[ onoff ]('zoomstart movestart', this.zoomMoveStart, this);
+        if (L.version.substr(0, 1) === '0') {
+            map[ onoff ]('mousedown touchstart', this.mouseDown, this);
+            map[ onoff ]('zoomstart movestart', this.zoomMoveStart, this);
+        }
 
         // body events
         L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave.bind(this));
@@ -202,6 +194,10 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         if (latlngs.length < 3) return;
 
         // convert tracer polyline into polygon
+        if (this.options.concave_polygons) {
+            latlngs.push(latlngs[0]);
+            latlngs = new ConcaveHull(latlngs).getLatLngs();
+        }
         if (this.mode === 'add') {
             this.addPolygon( latlngs, true );
         } else if (this.mode === 'subtract') {
@@ -217,24 +213,22 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     // polygon creation methods
 
+    getPolygon: function (latlngs) {
+        var polyoptions = L.extend({}, this.options.polygon);
+        return new this.Polygon(latlngs, polyoptions);
+    },
+
     addPolygon: function(latlngs, force, nomerge, noevent) {
-        var latlngs = force ? latlngs : this.getSimplified(latlngs),
-            polyoptions = L.extend({}, this.options.polygon);
+        var latlngs = force ? latlngs : this.getSimplified(latlngs);
 
         if (this.options.merge_polygons && !nomerge) {
-            this.merge(latlngs, polyoptions);
+            this.merge(latlngs);
         } else {
-            this.addLayer( new this.Polygon(latlngs, polyoptions), noevent);
+            this.addLayer( this.getPolygon(latlngs), noevent);
         }
 
         // todo:
         // styles for modes
-
-        /*polygon.on({
-            mouseover: highlightFeature.bind(this),
-            mouseout: resetHighlight.bind(this)
-        });*/
-
     },
 
     subtractPolygon : function (latlngs, force) {
@@ -278,7 +272,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         return latlngs;
     },
 
-    merge : function (latlngs, polyoptions) {
+    merge : function (latlngs) {
         var polys = this.getLayers(),
             newjson = _turf.buffer(_turf.polygon(this.getCoordsFromLatLngs( latlngs )),0),
             fnc = this._tryturf.bind(this, 'union'),
@@ -324,7 +318,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
             }
 
             _latlngs = _this.getLatLngsFromJSON( newjson );
-            _this.addLayer( new _this.Polygon(_latlngs, polyoptions) );
+            _this.addLayer( _this.getPolygon(_latlngs) );
         }
 
     },
@@ -421,7 +415,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
 
     resetTracer : function () {
         // remove tracer polyline by setting empty points
-        this.tracer.setLatLngs([]);
+        this.tracer.setLatLngs([[0,0]]);
     },
     
     setMapPermissions: function(method) {

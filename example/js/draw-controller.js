@@ -1,6 +1,6 @@
 var map = require('./leaflet-map'),
 	categories = require('./categories'),
-	group = new L.FeatureGroup(),
+	group = new L.LayerGroup(),
 	activetool = $('#draw-tools').find('input:checked').val(),
 	activetype = $('#draw-colors').find('input:checked').val(),
 	turfwebworker = new Worker('./js/turf-web-worker.min.js'),
@@ -33,6 +33,7 @@ for (var name in categories) {
 	drawer.on('layeradd', function (data) {
 		var poly = data.layer;
 		
+		console.log('layeradd');
 		subtractOtherLayers.call(this, data);
 		intersectWithStudyArea( poly );
 	});

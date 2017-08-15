@@ -3,7 +3,7 @@ Leaflet.FreeHandShapes
 
 ![MIT License](http://img.shields.io/badge/license-MIT-lightgrey.svg)
 &nbsp;
-![Leaflet](http://img.shields.io/badge/leaflet-1.0.2-green.svg)
+![Leaflet](http://img.shields.io/badge/leaflet-1.2.0-green.svg)
 
 Initially forked from and inspired by [L.FreeDraw](https://github.com/Wildhoney/Leaflet.FreeDraw)
 
@@ -14,6 +14,13 @@ This is a Leaflet plugin for adding/manipulating polygons from a Leaflet map.  I
 [See the demo](https://bozdoz.github.io/Leaflet.FreeHandShapes/)
 
 ![Screenshot](http://i.imgur.com/5Zis4Q4.png)
+
+## Installation
+
+via npm:
+```
+npm install leaflet-freehandshapes --save
+```
 
 ## Usage
 
@@ -39,8 +46,9 @@ drawer.setMode('delete');
 L.FreeHandShapes takes the following options:
 
 * `polygon` (object) : Same options as [L.Polygon](http://leafletjs.com/reference-1.0.2.html#polygon)
+
 **Default:**
-```
+```javascript
 {
     className: 'leaflet-free-hand-shapes',
     smoothFactor: 1,
@@ -49,8 +57,9 @@ L.FreeHandShapes takes the following options:
 }
 ```
 * `polyline` (object) : Same options as [L.Polyline](http://leafletjs.com/reference-1.0.2.html#polyline)
+
 **Default:**
-```
+```javascript
 {
     color:'#5cb85c',
     opacity:1,
@@ -61,9 +70,11 @@ L.FreeHandShapes takes the following options:
 }
 ```
 * `simplify_tolerance` (float) : how much to simplify the polygon (argument given to [L.LineUtil.simplify](https://github.com/Leaflet/Leaflet/blob/master/src/geometry/LineUtil.js)). 
+
 **Default:**
 `0.005`
 * `merge_polygons` (boolean)
+
 **Default:**
 `true
 

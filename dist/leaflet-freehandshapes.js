@@ -43,315 +43,6 @@
         return s;
     }({
         1: [ function(_dereq_, module, exports) {
-            var helpers = _dereq_("@turf/helpers");
-            var featureCollection = helpers.featureCollection;
-            var jsts = _dereq_("jsts");
-            var normalize = _dereq_("geojson-normalize");
-            module.exports = function(feature, radius, units) {
-                var degrees = helpers.distanceToDegrees(radius, units);
-                var fc = normalize(feature);
-                var buffered = normalize(featureCollection(fc.features.map(function(f) {
-                    return bufferOp(f, degrees);
-                })));
-                if (buffered.features.length > 1) return buffered; else if (buffered.features.length === 1) return buffered.features[0];
-            };
-            function bufferOp(feature, radius) {
-                var reader = new jsts.io.GeoJSONReader();
-                var geom = reader.read(feature.geometry);
-                var buffered = geom.buffer(radius);
-                var writer = new jsts.io.GeoJSONWriter();
-                buffered = writer.write(buffered);
-                return {
-                    type: "Feature",
-                    geometry: buffered,
-                    properties: {}
-                };
-            }
-        }, {
-            "@turf/helpers": 4,
-            "geojson-normalize": 7,
-            jsts: 8
-        } ],
-        2: [ function(_dereq_, module, exports) {
-            var jsts = _dereq_("jsts");
-            module.exports = function(p1, p2) {
-                var poly1 = JSON.parse(JSON.stringify(p1));
-                var poly2 = JSON.parse(JSON.stringify(p2));
-                if (poly1.type !== "Feature") {
-                    poly1 = {
-                        type: "Feature",
-                        properties: {},
-                        geometry: poly1
-                    };
-                }
-                if (poly2.type !== "Feature") {
-                    poly2 = {
-                        type: "Feature",
-                        properties: {},
-                        geometry: poly2
-                    };
-                }
-                var reader = new jsts.io.GeoJSONReader();
-                var a = reader.read(JSON.stringify(poly1.geometry));
-                var b = reader.read(JSON.stringify(poly2.geometry));
-                var differenced = a.difference(b);
-                if (differenced.isEmpty()) return undefined;
-                var writer = new jsts.io.GeoJSONWriter();
-                var geojsonGeometry = writer.write(differenced);
-                poly1.geometry = differenced;
-                return {
-                    type: "Feature",
-                    properties: poly1.properties,
-                    geometry: geojsonGeometry
-                };
-            };
-        }, {
-            jsts: 8
-        } ],
-        3: [ function(_dereq_, module, exports) {
-            var coordEach = _dereq_("@turf/meta").coordEach;
-            module.exports = function flip(input) {
-                input = JSON.parse(JSON.stringify(input));
-                coordEach(input, function(coord) {
-                    coord.reverse();
-                });
-                return input;
-            };
-        }, {
-            "@turf/meta": 5
-        } ],
-        4: [ function(_dereq_, module, exports) {
-            function feature(geometry, properties) {
-                return {
-                    type: "Feature",
-                    properties: properties || {},
-                    geometry: geometry
-                };
-            }
-            module.exports.feature = feature;
-            module.exports.point = function(coordinates, properties) {
-                if (!Array.isArray(coordinates)) throw new Error("Coordinates must be an array");
-                if (coordinates.length < 2) throw new Error("Coordinates must be at least 2 numbers long");
-                return feature({
-                    type: "Point",
-                    coordinates: coordinates.slice()
-                }, properties);
-            };
-            module.exports.polygon = function(coordinates, properties) {
-                if (!coordinates) throw new Error("No coordinates passed");
-                for (var i = 0; i < coordinates.length; i++) {
-                    var ring = coordinates[i];
-                    if (ring.length < 4) {
-                        throw new Error("Each LinearRing of a Polygon must have 4 or more Positions.");
-                    }
-                    for (var j = 0; j < ring[ring.length - 1].length; j++) {
-                        if (ring[ring.length - 1][j] !== ring[0][j]) {
-                            throw new Error("First and last Position are not equivalent.");
-                        }
-                    }
-                }
-                return feature({
-                    type: "Polygon",
-                    coordinates: coordinates
-                }, properties);
-            };
-            module.exports.lineString = function(coordinates, properties) {
-                if (!coordinates) {
-                    throw new Error("No coordinates passed");
-                }
-                return feature({
-                    type: "LineString",
-                    coordinates: coordinates
-                }, properties);
-            };
-            module.exports.featureCollection = function(features) {
-                return {
-                    type: "FeatureCollection",
-                    features: features
-                };
-            };
-            module.exports.multiLineString = function(coordinates, properties) {
-                if (!coordinates) {
-                    throw new Error("No coordinates passed");
-                }
-                return feature({
-                    type: "MultiLineString",
-                    coordinates: coordinates
-                }, properties);
-            };
-            module.exports.multiPoint = function(coordinates, properties) {
-                if (!coordinates) {
-                    throw new Error("No coordinates passed");
-                }
-                return feature({
-                    type: "MultiPoint",
-                    coordinates: coordinates
-                }, properties);
-            };
-            module.exports.multiPolygon = function(coordinates, properties) {
-                if (!coordinates) {
-                    throw new Error("No coordinates passed");
-                }
-                return feature({
-                    type: "MultiPolygon",
-                    coordinates: coordinates
-                }, properties);
-            };
-            module.exports.geometryCollection = function(geometries, properties) {
-                return feature({
-                    type: "GeometryCollection",
-                    geometries: geometries
-                }, properties);
-            };
-            var factors = {
-                miles: 3960,
-                nauticalmiles: 3441.145,
-                degrees: 57.2957795,
-                radians: 1,
-                inches: 250905600,
-                yards: 6969600,
-                meters: 6373e3,
-                metres: 6373e3,
-                kilometers: 6373,
-                kilometres: 6373
-            };
-            module.exports.radiansToDistance = function(radians, units) {
-                var factor = factors[units || "kilometers"];
-                if (factor === undefined) {
-                    throw new Error("Invalid unit");
-                }
-                return radians * factor;
-            };
-            module.exports.distanceToRadians = function(distance, units) {
-                var factor = factors[units || "kilometers"];
-                if (factor === undefined) {
-                    throw new Error("Invalid unit");
-                }
-                return distance / factor;
-            };
-            module.exports.distanceToDegrees = function(distance, units) {
-                var factor = factors[units || "kilometers"];
-                if (factor === undefined) {
-                    throw new Error("Invalid unit");
-                }
-                return distance / factor * 57.2958;
-            };
-        }, {} ],
-        5: [ function(_dereq_, module, exports) {
-            function coordEach(layer, callback, excludeWrapCoord) {
-                var i, j, k, g, l, geometry, stopG, coords, geometryMaybeCollection, wrapShrink = 0, isGeometryCollection, isFeatureCollection = layer.type === "FeatureCollection", isFeature = layer.type === "Feature", stop = isFeatureCollection ? layer.features.length : 1;
-                for (i = 0; i < stop; i++) {
-                    geometryMaybeCollection = isFeatureCollection ? layer.features[i].geometry : isFeature ? layer.geometry : layer;
-                    isGeometryCollection = geometryMaybeCollection.type === "GeometryCollection";
-                    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
-                    for (g = 0; g < stopG; g++) {
-                        geometry = isGeometryCollection ? geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
-                        coords = geometry.coordinates;
-                        wrapShrink = excludeWrapCoord && (geometry.type === "Polygon" || geometry.type === "MultiPolygon") ? 1 : 0;
-                        if (geometry.type === "Point") {
-                            callback(coords);
-                        } else if (geometry.type === "LineString" || geometry.type === "MultiPoint") {
-                            for (j = 0; j < coords.length; j++) callback(coords[j]);
-                        } else if (geometry.type === "Polygon" || geometry.type === "MultiLineString") {
-                            for (j = 0; j < coords.length; j++) for (k = 0; k < coords[j].length - wrapShrink; k++) callback(coords[j][k]);
-                        } else if (geometry.type === "MultiPolygon") {
-                            for (j = 0; j < coords.length; j++) for (k = 0; k < coords[j].length; k++) for (l = 0; l < coords[j][k].length - wrapShrink; l++) callback(coords[j][k][l]);
-                        } else if (geometry.type === "GeometryCollection") {
-                            for (j = 0; j < geometry.geometries.length; j++) coordEach(geometry.geometries[j], callback, excludeWrapCoord);
-                        } else {
-                            throw new Error("Unknown Geometry Type");
-                        }
-                    }
-                }
-            }
-            module.exports.coordEach = coordEach;
-            function coordReduce(layer, callback, memo, excludeWrapCoord) {
-                coordEach(layer, function(coord) {
-                    memo = callback(memo, coord);
-                }, excludeWrapCoord);
-                return memo;
-            }
-            module.exports.coordReduce = coordReduce;
-            function propEach(layer, callback) {
-                var i;
-                switch (layer.type) {
-                  case "FeatureCollection":
-                    for (i = 0; i < layer.features.length; i++) {
-                        callback(layer.features[i].properties, i);
-                    }
-                    break;
-
-                  case "Feature":
-                    callback(layer.properties, 0);
-                    break;
-                }
-            }
-            module.exports.propEach = propEach;
-            function propReduce(layer, callback, memo) {
-                propEach(layer, function(prop, i) {
-                    memo = callback(memo, prop, i);
-                });
-                return memo;
-            }
-            module.exports.propReduce = propReduce;
-            function featureEach(layer, callback) {
-                if (layer.type === "Feature") {
-                    callback(layer, 0);
-                } else if (layer.type === "FeatureCollection") {
-                    for (var i = 0; i < layer.features.length; i++) {
-                        callback(layer.features[i], i);
-                    }
-                }
-            }
-            module.exports.featureEach = featureEach;
-            function coordAll(layer) {
-                var coords = [];
-                coordEach(layer, function(coord) {
-                    coords.push(coord);
-                });
-                return coords;
-            }
-            module.exports.coordAll = coordAll;
-            function geomEach(layer, callback) {
-                var i, j, g, geometry, stopG, geometryMaybeCollection, isGeometryCollection, isFeatureCollection = layer.type === "FeatureCollection", isFeature = layer.type === "Feature", stop = isFeatureCollection ? layer.features.length : 1;
-                for (i = 0; i < stop; i++) {
-                    geometryMaybeCollection = isFeatureCollection ? layer.features[i].geometry : isFeature ? layer.geometry : layer;
-                    isGeometryCollection = geometryMaybeCollection.type === "GeometryCollection";
-                    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
-                    for (g = 0; g < stopG; g++) {
-                        geometry = isGeometryCollection ? geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
-                        if (geometry.type === "Point" || geometry.type === "LineString" || geometry.type === "MultiPoint" || geometry.type === "Polygon" || geometry.type === "MultiLineString" || geometry.type === "MultiPolygon") {
-                            callback(geometry);
-                        } else if (geometry.type === "GeometryCollection") {
-                            for (j = 0; j < geometry.geometries.length; j++) callback(geometry.geometries[j]);
-                        } else {
-                            throw new Error("Unknown Geometry Type");
-                        }
-                    }
-                }
-            }
-            module.exports.geomEach = geomEach;
-        }, {} ],
-        6: [ function(_dereq_, module, exports) {
-            var jsts = _dereq_("jsts");
-            module.exports = function() {
-                var reader = new jsts.io.GeoJSONReader();
-                var result = reader.read(JSON.stringify(arguments[0].geometry));
-                for (var i = 1; i < arguments.length; i++) {
-                    result = result.union(reader.read(JSON.stringify(arguments[i].geometry)));
-                }
-                var writer = new jsts.io.GeoJSONWriter();
-                result = writer.write(result);
-                return {
-                    type: "Feature",
-                    geometry: result,
-                    properties: arguments[0].properties
-                };
-            };
-        }, {
-            jsts: 8
-        } ],
-        7: [ function(_dereq_, module, exports) {
             module.exports = normalize;
             var types = {
                 Point: "geometry",
@@ -387,7 +78,441 @@
                 }
             }
         }, {} ],
+        2: [ function(_dereq_, module, exports) {
+            var helpers = _dereq_("@turf/helpers");
+            var featureCollection = helpers.featureCollection;
+            var jsts = _dereq_("jsts");
+            var normalize = _dereq_("@mapbox/geojson-normalize");
+            module.exports = function(feature, radius, units) {
+                var degrees = helpers.distanceToDegrees(radius, units);
+                var fc = normalize(feature);
+                var buffered = normalize(featureCollection(fc.features.map(function(f) {
+                    return bufferOp(f, degrees);
+                })));
+                if (buffered.features.length > 1) return buffered; else if (buffered.features.length === 1) return buffered.features[0];
+            };
+            function bufferOp(feature, radius) {
+                var reader = new jsts.io.GeoJSONReader();
+                var geom = reader.read(feature.geometry);
+                var buffered = geom.buffer(radius);
+                var writer = new jsts.io.GeoJSONWriter();
+                buffered = writer.write(buffered);
+                return {
+                    type: "Feature",
+                    geometry: buffered,
+                    properties: {}
+                };
+            }
+        }, {
+            "@mapbox/geojson-normalize": 1,
+            "@turf/helpers": 5,
+            jsts: 9
+        } ],
+        3: [ function(_dereq_, module, exports) {
+            var jsts = _dereq_("jsts");
+            module.exports = function(p1, p2) {
+                var poly1 = JSON.parse(JSON.stringify(p1));
+                var poly2 = JSON.parse(JSON.stringify(p2));
+                if (poly1.type !== "Feature") {
+                    poly1 = {
+                        type: "Feature",
+                        properties: {},
+                        geometry: poly1
+                    };
+                }
+                if (poly2.type !== "Feature") {
+                    poly2 = {
+                        type: "Feature",
+                        properties: {},
+                        geometry: poly2
+                    };
+                }
+                var reader = new jsts.io.GeoJSONReader();
+                var a = reader.read(JSON.stringify(poly1.geometry));
+                var b = reader.read(JSON.stringify(poly2.geometry));
+                var differenced = a.difference(b);
+                if (differenced.isEmpty()) return undefined;
+                var writer = new jsts.io.GeoJSONWriter();
+                var geojsonGeometry = writer.write(differenced);
+                poly1.geometry = differenced;
+                return {
+                    type: "Feature",
+                    properties: poly1.properties,
+                    geometry: geojsonGeometry
+                };
+            };
+        }, {
+            jsts: 9
+        } ],
+        4: [ function(_dereq_, module, exports) {
+            var coordEach = _dereq_("@turf/meta").coordEach;
+            module.exports = function flip(input) {
+                input = JSON.parse(JSON.stringify(input));
+                coordEach(input, function(coord) {
+                    coord.reverse();
+                });
+                return input;
+            };
+        }, {
+            "@turf/meta": 6
+        } ],
+        5: [ function(_dereq_, module, exports) {
+            function feature(geometry, properties) {
+                if (!geometry) throw new Error("No geometry passed");
+                return {
+                    type: "Feature",
+                    properties: properties || {},
+                    geometry: geometry
+                };
+            }
+            module.exports.feature = feature;
+            module.exports.point = function(coordinates, properties) {
+                if (!coordinates) throw new Error("No coordinates passed");
+                if (coordinates.length === undefined) throw new Error("Coordinates must be an array");
+                if (coordinates.length < 2) throw new Error("Coordinates must be at least 2 numbers long");
+                if (typeof coordinates[0] !== "number" || typeof coordinates[1] !== "number") throw new Error("Coordinates must numbers");
+                return feature({
+                    type: "Point",
+                    coordinates: coordinates
+                }, properties);
+            };
+            module.exports.polygon = function(coordinates, properties) {
+                if (!coordinates) throw new Error("No coordinates passed");
+                for (var i = 0; i < coordinates.length; i++) {
+                    var ring = coordinates[i];
+                    if (ring.length < 4) {
+                        throw new Error("Each LinearRing of a Polygon must have 4 or more Positions.");
+                    }
+                    for (var j = 0; j < ring[ring.length - 1].length; j++) {
+                        if (ring[ring.length - 1][j] !== ring[0][j]) {
+                            throw new Error("First and last Position are not equivalent.");
+                        }
+                    }
+                }
+                return feature({
+                    type: "Polygon",
+                    coordinates: coordinates
+                }, properties);
+            };
+            module.exports.lineString = function(coordinates, properties) {
+                if (!coordinates) throw new Error("No coordinates passed");
+                return feature({
+                    type: "LineString",
+                    coordinates: coordinates
+                }, properties);
+            };
+            module.exports.featureCollection = function(features) {
+                if (!features) throw new Error("No features passed");
+                return {
+                    type: "FeatureCollection",
+                    features: features
+                };
+            };
+            module.exports.multiLineString = function(coordinates, properties) {
+                if (!coordinates) throw new Error("No coordinates passed");
+                return feature({
+                    type: "MultiLineString",
+                    coordinates: coordinates
+                }, properties);
+            };
+            module.exports.multiPoint = function(coordinates, properties) {
+                if (!coordinates) throw new Error("No coordinates passed");
+                return feature({
+                    type: "MultiPoint",
+                    coordinates: coordinates
+                }, properties);
+            };
+            module.exports.multiPolygon = function(coordinates, properties) {
+                if (!coordinates) throw new Error("No coordinates passed");
+                return feature({
+                    type: "MultiPolygon",
+                    coordinates: coordinates
+                }, properties);
+            };
+            module.exports.geometryCollection = function(geometries, properties) {
+                if (!geometries) throw new Error("No geometries passed");
+                return feature({
+                    type: "GeometryCollection",
+                    geometries: geometries
+                }, properties);
+            };
+            var factors = {
+                miles: 3960,
+                nauticalmiles: 3441.145,
+                degrees: 57.2957795,
+                radians: 1,
+                inches: 250905600,
+                yards: 6969600,
+                meters: 6373e3,
+                metres: 6373e3,
+                kilometers: 6373,
+                kilometres: 6373,
+                feet: 20908792.65
+            };
+            module.exports.radiansToDistance = function(radians, units) {
+                var factor = factors[units || "kilometers"];
+                if (factor === undefined) throw new Error("Invalid unit");
+                return radians * factor;
+            };
+            module.exports.distanceToRadians = function(distance, units) {
+                var factor = factors[units || "kilometers"];
+                if (factor === undefined) throw new Error("Invalid unit");
+                return distance / factor;
+            };
+            module.exports.distanceToDegrees = function(distance, units) {
+                var factor = factors[units || "kilometers"];
+                if (factor === undefined) throw new Error("Invalid unit");
+                return distance / factor * 57.2958;
+            };
+        }, {} ],
+        6: [ function(_dereq_, module, exports) {
+            function coordEach(layer, callback, excludeWrapCoord) {
+                var i, j, k, g, l, geometry, stopG, coords, geometryMaybeCollection, wrapShrink = 0, currentIndex = 0, isGeometryCollection, isFeatureCollection = layer.type === "FeatureCollection", isFeature = layer.type === "Feature", stop = isFeatureCollection ? layer.features.length : 1;
+                for (i = 0; i < stop; i++) {
+                    geometryMaybeCollection = isFeatureCollection ? layer.features[i].geometry : isFeature ? layer.geometry : layer;
+                    isGeometryCollection = geometryMaybeCollection.type === "GeometryCollection";
+                    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+                    for (g = 0; g < stopG; g++) {
+                        geometry = isGeometryCollection ? geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+                        coords = geometry.coordinates;
+                        wrapShrink = excludeWrapCoord && (geometry.type === "Polygon" || geometry.type === "MultiPolygon") ? 1 : 0;
+                        if (geometry.type === "Point") {
+                            callback(coords, currentIndex);
+                            currentIndex++;
+                        } else if (geometry.type === "LineString" || geometry.type === "MultiPoint") {
+                            for (j = 0; j < coords.length; j++) {
+                                callback(coords[j], currentIndex);
+                                currentIndex++;
+                            }
+                        } else if (geometry.type === "Polygon" || geometry.type === "MultiLineString") {
+                            for (j = 0; j < coords.length; j++) for (k = 0; k < coords[j].length - wrapShrink; k++) {
+                                callback(coords[j][k], currentIndex);
+                                currentIndex++;
+                            }
+                        } else if (geometry.type === "MultiPolygon") {
+                            for (j = 0; j < coords.length; j++) for (k = 0; k < coords[j].length; k++) for (l = 0; l < coords[j][k].length - wrapShrink; l++) {
+                                callback(coords[j][k][l], currentIndex);
+                                currentIndex++;
+                            }
+                        } else if (geometry.type === "GeometryCollection") {
+                            for (j = 0; j < geometry.geometries.length; j++) coordEach(geometry.geometries[j], callback, excludeWrapCoord);
+                        } else {
+                            throw new Error("Unknown Geometry Type");
+                        }
+                    }
+                }
+            }
+            module.exports.coordEach = coordEach;
+            function coordReduce(layer, callback, initialValue, excludeWrapCoord) {
+                var previousValue = initialValue;
+                coordEach(layer, function(currentCoords, currentIndex) {
+                    if (currentIndex === 0 && initialValue === undefined) {
+                        previousValue = currentCoords;
+                    } else {
+                        previousValue = callback(previousValue, currentCoords, currentIndex);
+                    }
+                }, excludeWrapCoord);
+                return previousValue;
+            }
+            module.exports.coordReduce = coordReduce;
+            function propEach(layer, callback) {
+                var i;
+                switch (layer.type) {
+                  case "FeatureCollection":
+                    for (i = 0; i < layer.features.length; i++) {
+                        callback(layer.features[i].properties, i);
+                    }
+                    break;
+
+                  case "Feature":
+                    callback(layer.properties, 0);
+                    break;
+                }
+            }
+            module.exports.propEach = propEach;
+            function propReduce(layer, callback, initialValue) {
+                var previousValue = initialValue;
+                propEach(layer, function(currentProperties, currentIndex) {
+                    if (currentIndex === 0 && initialValue === undefined) {
+                        previousValue = currentProperties;
+                    } else {
+                        previousValue = callback(previousValue, currentProperties, currentIndex);
+                    }
+                });
+                return previousValue;
+            }
+            module.exports.propReduce = propReduce;
+            function featureEach(layer, callback) {
+                if (layer.type === "Feature") {
+                    callback(layer, 0);
+                } else if (layer.type === "FeatureCollection") {
+                    for (var i = 0; i < layer.features.length; i++) {
+                        callback(layer.features[i], i);
+                    }
+                }
+            }
+            module.exports.featureEach = featureEach;
+            function featureReduce(layer, callback, initialValue) {
+                var previousValue = initialValue;
+                featureEach(layer, function(currentFeature, currentIndex) {
+                    if (currentIndex === 0 && initialValue === undefined) {
+                        previousValue = currentFeature;
+                    } else {
+                        previousValue = callback(previousValue, currentFeature, currentIndex);
+                    }
+                });
+                return previousValue;
+            }
+            module.exports.featureReduce = featureReduce;
+            function coordAll(layer) {
+                var coords = [];
+                coordEach(layer, function(coord) {
+                    coords.push(coord);
+                });
+                return coords;
+            }
+            module.exports.coordAll = coordAll;
+            function geomEach(layer, callback) {
+                var i, j, g, geometry, stopG, geometryMaybeCollection, isGeometryCollection, currentIndex = 0, isFeatureCollection = layer.type === "FeatureCollection", isFeature = layer.type === "Feature", stop = isFeatureCollection ? layer.features.length : 1;
+                for (i = 0; i < stop; i++) {
+                    geometryMaybeCollection = isFeatureCollection ? layer.features[i].geometry : isFeature ? layer.geometry : layer;
+                    isGeometryCollection = geometryMaybeCollection.type === "GeometryCollection";
+                    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+                    for (g = 0; g < stopG; g++) {
+                        geometry = isGeometryCollection ? geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+                        if (geometry.type === "Point" || geometry.type === "LineString" || geometry.type === "MultiPoint" || geometry.type === "Polygon" || geometry.type === "MultiLineString" || geometry.type === "MultiPolygon") {
+                            callback(geometry, currentIndex);
+                            currentIndex++;
+                        } else if (geometry.type === "GeometryCollection") {
+                            for (j = 0; j < geometry.geometries.length; j++) {
+                                callback(geometry.geometries[j], currentIndex);
+                                currentIndex++;
+                            }
+                        } else {
+                            throw new Error("Unknown Geometry Type");
+                        }
+                    }
+                }
+            }
+            module.exports.geomEach = geomEach;
+            function geomReduce(layer, callback, initialValue) {
+                var previousValue = initialValue;
+                geomEach(layer, function(currentGeometry, currentIndex) {
+                    if (currentIndex === 0 && initialValue === undefined) {
+                        previousValue = currentGeometry;
+                    } else {
+                        previousValue = callback(previousValue, currentGeometry, currentIndex);
+                    }
+                });
+                return previousValue;
+            }
+            module.exports.geomReduce = geomReduce;
+        }, {} ],
+        7: [ function(_dereq_, module, exports) {
+            var jsts = _dereq_("jsts");
+            module.exports = function() {
+                var reader = new jsts.io.GeoJSONReader();
+                var result = reader.read(JSON.stringify(arguments[0].geometry));
+                for (var i = 1; i < arguments.length; i++) {
+                    result = result.union(reader.read(JSON.stringify(arguments[i].geometry)));
+                }
+                var writer = new jsts.io.GeoJSONWriter();
+                result = writer.write(result);
+                return {
+                    type: "Feature",
+                    geometry: result,
+                    properties: arguments[0].properties
+                };
+            };
+        }, {
+            jsts: 9
+        } ],
         8: [ function(_dereq_, module, exports) {
+            /*! concavehull by Adam Timberlake <adam.timberlake@gmail.com> created on 2015-01-23 */
+            !function(a) {
+                "use strict";
+                var b = function(a, b) {
+                    var c = this.convertLatLngs(a);
+                    this.points = c.points, this.maxDistance = isFinite(b) ? b : c.maxDistance + 1;
+                };
+                b.prototype = {
+                    points: [],
+                    maxDistance: 0,
+                    convertLatLngs: function(a) {
+                        var b = 0, c = a.map(function(c, d) {
+                            if (c.x = c.lng, c.y = this.lat2y(c), a[d - 1]) {
+                                var e = this.distanceTo(c, a[d - 1]);
+                                e > b && (b = e);
+                            }
+                            return c;
+                        }.bind(this));
+                        return {
+                            points: c,
+                            maxDistance: b
+                        };
+                    },
+                    distanceTo: function(b, c) {
+                        var d = 6378137, e = a.PI / 180, f = (c.lat - b.lat) * e, g = (c.lng - b.lng) * e, h = b.lat * e, i = c.lat * e, j = a.sin(f / 2), k = a.sin(g / 2), l = j * j + k * k * a.cos(h) * a.cos(i);
+                        return 2 * d * a.atan2(a.sqrt(l), a.sqrt(1 - l));
+                    },
+                    getLatLngs: function() {
+                        if (this.length <= 3) return this.points;
+                        var a = this.points.slice().sort(function(a, b) {
+                            return a.y - b.y;
+                        }), b = [], c = a[0], d = c, e = {
+                            x: d.x,
+                            y: d.y - 1
+                        };
+                        b.push(c);
+                        for (var f, g = 0, h = function(a, b) {
+                            return this.getAngle(d, e, b) - this.getAngle(d, e, a);
+                        }.bind(this); ;) {
+                            g++;
+                            for (var i = this.points.slice().sort(h), j = 0, k = i.length; k > j; j++) if (this.distanceTo(d, i[j]) < this.maxDistance && !this.isIntersecting(b, i[j])) {
+                                f = i[j];
+                                break;
+                            }
+                            if (!f) return this.points;
+                            if (f === d) return this.points;
+                            if (b.push(f), f === c) return b;
+                            if (e = d, d = f, f = void 0, g > 1e3) return this.points;
+                        }
+                    },
+                    isIntersecting: function(a, b) {
+                        for (var c = 1, d = a.length - 1; d > c; c++) if (this.intersect(a[c - 1], a[c], a[d], b)) return !0;
+                        return !1;
+                    },
+                    intersect: function(a, b, c, d) {
+                        return a.x === c.x && a.y === c.y || b.x === d.x && b.y === d.y || a.x === d.x && a.y === d.y || b.x === c.x && b.y === c.y ? !1 : this.ccw(a, b, c) * this.ccw(a, b, d) <= 0 && this.ccw(c, d, a) * this.ccw(c, d, b) <= 0;
+                    },
+                    lat2y: function(b) {
+                        return 180 / a.PI * a.log(a.tan(a.PI / 4 + b.lat * (a.PI / 180) / 2));
+                    },
+                    ccw: function(a, b, c) {
+                        var d = 1e-13, e = b.x - a.x, f = b.y - a.y, g = c.x - a.x, h = c.y - a.y, i = e * h - f * g;
+                        return i > d ? 1 : -d > i ? -1 : -d > e * g || -d > f * h ? -1 : g * g + h * h + d > e * e + f * f ? 1 : 0;
+                    },
+                    getAngle: function(b, c, d) {
+                        if (d.x === b.x && d.y === b.y) return -9e3;
+                        if (d.x === c.x && d.y === c.y) return -360;
+                        var e, f = {
+                            x: b.x - c.x,
+                            y: b.y - c.y
+                        }, g = {
+                            x: d.x - b.x,
+                            y: d.y - b.y
+                        }, h = f.x * g.y - g.x * f.y, i = f.x * g.x + f.y * g.y;
+                        return 0 === i ? (h > 0 && (e = 90), 0 > h && (e = -90)) : (e = 180 * a.atan(h / i) / a.PI, 
+                        0 > i && (h >= 0 && (e += 180), 0 > h && (e -= 180))), 360 === e && (e = 0), 180 - e;
+                    }
+                }, function() {
+                    return "undefined" != typeof module && module.exports ? void (module.exports = b) : "function" == typeof define && define.amd ? void define(function() {
+                        return b;
+                    }) : void (window.ConcaveHull = b);
+                }();
+            }(Math);
+        }, {} ],
+        9: [ function(_dereq_, module, exports) {
             // Licenses:
             // https://github.com/bjornharrtell/jsts/blob/master/LICENSE_EDLv1.txt
             // https://github.com/bjornharrtell/jsts/blob/master/LICENSE_EPLv1.txt
@@ -675,7 +800,7 @@
                         } else if (Number.isInteger(arguments[0])) {
                             var e = arguments[0];
                             this.coordinates = new Array(e).fill(null);
-                            for (var n = 0; e > n; n++) this.coordinates[n] = new g();
+                            for (var n = 0; n < e; n++) this.coordinates[n] = new g();
                         } else if (R(arguments[0], D)) {
                             var i = arguments[0];
                             if (null === i) return this.coordinates = new Array(0).fill(null), null;
@@ -688,7 +813,7 @@
                     } else if (Number.isInteger(arguments[0]) && Number.isInteger(arguments[1])) {
                         var o = arguments[0], a = arguments[1];
                         this.coordinates = new Array(o).fill(null), this.dimension = a;
-                        for (var n = 0; o > n; n++) this.coordinates[n] = new g();
+                        for (var n = 0; n < o; n++) this.coordinates[n] = new g();
                     }
                 }
                 function qt() {}
@@ -1302,7 +1427,7 @@
                     this.depth = Array(2).fill().map(function() {
                         return Array(3);
                     });
-                    for (var t = 0; 2 > t; t++) for (var e = 0; 3 > e; e++) this.depth[t][e] = Qn.NULL_VALUE;
+                    for (var t = 0; t < 2; t++) for (var e = 0; e < 3; e++) this.depth[t][e] = Qn.NULL_VALUE;
                 }
                 function Jn() {
                     if (mn.apply(this), this.pts = null, this.env = null, this.eiList = new jn(this), 
@@ -1421,14 +1546,14 @@
                         32: 8,
                         64: 11
                     }[t];
-                    if (s || (n = 0 > e || 0 > 1 / e, isFinite(e) || (s = o[t], n && (s.d += 1 << t / 4 - 1), 
+                    if (s || (n = e < 0 || 1 / e < 0, isFinite(e) || (s = o[t], n && (s.d += 1 << t / 4 - 1), 
                     i = Math.pow(2, a) - 1, r = 0)), !s) {
                         for (i = {
                             32: 127,
                             64: 1023
                         }[t], r = Math.abs(e); r >= 2; ) i++, r /= 2;
-                        for (;1 > r && i > 0; ) i--, r *= 2;
-                        0 >= i && (r /= 2), 32 === t && i > 254 && (s = {
+                        for (;r < 1 && i > 0; ) i--, r *= 2;
+                        i <= 0 && (r /= 2), 32 === t && i > 254 && (s = {
                             d: n ? 255 : 127,
                             c: 128,
                             b: 0,
@@ -1557,8 +1682,8 @@
                 function Ui(t) {
                     return [ t.x, t.y ];
                 }
-                function Xi(t) {
-                    this.geometryFactory = t || new ie();
+                function Xi(t, e) {
+                    this.geometryFactory = t || new ie(), this.ol = e || "undefined" != typeof ol && ol;
                 }
                 function Hi() {
                     if (this.noder = null, this.scaleFactor = null, this.offsetX = null, this.offsetY = null, 
@@ -1674,7 +1799,7 @@
                     this.p1Scaled = null, this.scaleFactor = null, this.minx = null, this.maxx = null, 
                     this.miny = null, this.maxy = null, this.corner = new Array(4).fill(null), this.safeEnv = null;
                     var t = arguments[0], e = arguments[1], n = arguments[2];
-                    if (this.originalPt = t, this.pt = t, this.scaleFactor = e, this.li = n, 0 >= e) throw new i("Scale factor must be non-zero");
+                    if (this.originalPt = t, this.pt = t, this.scaleFactor = e, this.li = n, e <= 0) throw new i("Scale factor must be non-zero");
                     1 !== e && (this.pt = new g(this.scale(t.x), this.scale(t.y)), this.p0Scaled = new g(), 
                     this.p1Scaled = new g()), this.initCorners(this.pt);
                 }
@@ -1812,125 +1937,158 @@
                     this.line = t;
                 }
                 function Dr() {
-                    this.factory = null, this.deList = new I(), this.lowestEdge = null, this.ring = null, 
-                    this.ringPts = null, this.holes = null, this.shell = null, this._isHole = null, 
-                    this._isProcessed = !1, this._isIncludedSet = !1, this._isIncluded = !1;
+                    this.geometryFactory = new ie(), this.geomGraph = null, this.disconnectedRingcoord = null;
                     var t = arguments[0];
-                    this.factory = t;
+                    this.geomGraph = t;
                 }
                 function Ar() {}
                 function Fr() {
-                    Pr.apply(this), this.factory = null;
-                    var t = arguments[0];
-                    this.factory = t;
-                }
-                function Gr() {
-                    if (this.lineStringAdder = new qr(this), this.graph = null, this.dangles = new I(), 
-                    this.cutEdges = new I(), this.invalidRingLines = new I(), this.holeList = null, 
-                    this.shellList = null, this.polyList = null, this.isCheckingRingsValid = !0, this.extractOnlyPolygonal = null, 
-                    this.geomFactory = null, 0 === arguments.length) Gr.call(this, !1); else if (1 === arguments.length) {
-                        var t = arguments[0];
-                        this.extractOnlyPolygonal = t;
-                    }
-                }
-                function qr() {
-                    this.p = null;
-                    var t = arguments[0];
-                    this.p = t;
-                }
-                function Br() {}
-                function zr() {
                     if (this.edgeEnds = new I(), 1 === arguments.length) {
                         var t = arguments[0];
-                        zr.call(this, null, t);
+                        Fr.call(this, null, t);
                     } else if (2 === arguments.length) {
                         var e = (arguments[0], arguments[1]);
                         En.call(this, e.getEdge(), e.getCoordinate(), e.getDirectedCoordinate(), new gn(e.getLabel())), 
                         this.insert(e);
                     }
                 }
-                function Vr() {
+                function Gr() {
                     Pn.apply(this);
                 }
-                function kr() {
+                function qr() {
                     var t = arguments[0], e = arguments[1];
                     yn.call(this, t, e);
                 }
-                function Yr() {
+                function Br() {
                     Nn.apply(this);
                 }
+                function zr() {
+                    this.nodes = new xn(new Br());
+                }
+                function Vr() {
+                    this.li = new ae(), this.geomGraph = null, this.nodeGraph = new zr(), this.invalidPoint = null;
+                    var t = arguments[0];
+                    this.geomGraph = t;
+                }
+                function kr() {
+                    this.graph = null, this.rings = new I(), this.totalEnv = new C(), this.index = null, 
+                    this.nestedPt = null;
+                    var t = arguments[0];
+                    this.graph = t;
+                }
+                function Yr() {
+                    if (this.errorType = null, this.pt = null, 1 === arguments.length) {
+                        var t = arguments[0];
+                        Yr.call(this, t, null);
+                    } else if (2 === arguments.length) {
+                        var e = arguments[0], n = arguments[1];
+                        this.errorType = e, null !== n && (this.pt = n.copy());
+                    }
+                }
                 function Ur() {
-                    this.li = new ae(), this.ptLocator = new Te(), this.arg = null, this.nodes = new xn(new Yr()), 
+                    this.parentGeometry = null, this.isSelfTouchingRingFormingHoleValid = !1, this.validErr = null;
+                    var t = arguments[0];
+                    this.parentGeometry = t;
+                }
+                function Xr() {
+                    this.factory = null, this.deList = new I(), this.lowestEdge = null, this.ring = null, 
+                    this.ringPts = null, this.holes = null, this.shell = null, this._isHole = null, 
+                    this._isProcessed = !1, this._isIncludedSet = !1, this._isIncluded = !1;
+                    var t = arguments[0];
+                    this.factory = t;
+                }
+                function Hr() {}
+                function Wr() {
+                    Pr.apply(this), this.factory = null;
+                    var t = arguments[0];
+                    this.factory = t;
+                }
+                function jr() {
+                    if (this.lineStringAdder = new Kr(this), this.graph = null, this.dangles = new I(), 
+                    this.cutEdges = new I(), this.invalidRingLines = new I(), this.holeList = null, 
+                    this.shellList = null, this.polyList = null, this.isCheckingRingsValid = !0, this.extractOnlyPolygonal = null, 
+                    this.geomFactory = null, 0 === arguments.length) jr.call(this, !1); else if (1 === arguments.length) {
+                        var t = arguments[0];
+                        this.extractOnlyPolygonal = t;
+                    }
+                }
+                function Kr() {
+                    this.p = null;
+                    var t = arguments[0];
+                    this.p = t;
+                }
+                function Zr() {
+                    this.li = new ae(), this.ptLocator = new Te(), this.arg = null, this.nodes = new xn(new Br()), 
                     this.im = null, this.isolatedEdges = new I(), this.invalidPoint = null;
                     var t = arguments[0];
                     this.arg = t;
                 }
-                function Xr() {
+                function Qr() {
                     this.rectEnv = null;
                     var t = arguments[0];
                     this.rectEnv = t.getEnvelopeInternal();
                 }
-                function Hr() {
+                function Jr() {
                     this.li = new ae(), this.rectEnv = null, this.diagUp0 = null, this.diagUp1 = null, 
                     this.diagDown0 = null, this.diagDown1 = null;
                     var t = arguments[0];
                     this.rectEnv = t, this.diagUp0 = new g(t.getMinX(), t.getMinY()), this.diagUp1 = new g(t.getMaxX(), t.getMaxY()), 
                     this.diagDown0 = new g(t.getMinX(), t.getMaxY()), this.diagDown1 = new g(t.getMaxX(), t.getMinY());
                 }
-                function Wr() {
+                function $r() {
                     this._isDone = !1;
                 }
-                function jr() {
+                function ts() {
                     this.rectangle = null, this.rectEnv = null;
                     var t = arguments[0];
                     this.rectangle = t, this.rectEnv = t.getEnvelopeInternal();
                 }
-                function Kr() {
-                    Wr.apply(this), this.rectEnv = null, this._intersects = !1;
+                function es() {
+                    $r.apply(this), this.rectEnv = null, this._intersects = !1;
                     var t = arguments[0];
                     this.rectEnv = t;
                 }
-                function Zr() {
-                    Wr.apply(this), this.rectSeq = null, this.rectEnv = null, this._containsPoint = !1;
+                function ns() {
+                    $r.apply(this), this.rectSeq = null, this.rectEnv = null, this._containsPoint = !1;
                     var t = arguments[0];
                     this.rectSeq = t.getExteriorRing().getCoordinateSequence(), this.rectEnv = t.getEnvelopeInternal();
                 }
-                function Qr() {
-                    Wr.apply(this), this.rectEnv = null, this.rectIntersector = null, this.hasIntersection = !1, 
+                function is() {
+                    $r.apply(this), this.rectEnv = null, this.rectIntersector = null, this.hasIntersection = !1, 
                     this.p0 = new g(), this.p1 = new g();
                     var t = arguments[0];
-                    this.rectEnv = t.getEnvelopeInternal(), this.rectIntersector = new Hr(this.rectEnv);
+                    this.rectEnv = t.getEnvelopeInternal(), this.rectIntersector = new Jr(this.rectEnv);
                 }
-                function Jr() {
+                function rs() {
                     if (this._relate = null, 2 === arguments.length) {
                         var t = arguments[0], e = arguments[1];
-                        ti.call(this, t, e), this._relate = new Ur(this.arg);
+                        ti.call(this, t, e), this._relate = new Zr(this.arg);
                     } else if (3 === arguments.length) {
                         var n = arguments[0], i = arguments[1], r = arguments[2];
-                        ti.call(this, n, i, r), this._relate = new Ur(this.arg);
+                        ti.call(this, n, i, r), this._relate = new Zr(this.arg);
                     }
                 }
-                function $r() {
+                function ss() {
                     this.geomFactory = null, this.skipEmpty = !1, this.inputGeoms = null;
                     var t = arguments[0];
-                    this.geomFactory = $r.extractFactory(t), this.inputGeoms = t;
+                    this.geomFactory = ss.extractFactory(t), this.inputGeoms = t;
                 }
-                function ts() {
+                function os() {
                     this.pointGeom = null, this.otherGeom = null, this.geomFact = null;
                     var t = arguments[0], e = arguments[1];
                     this.pointGeom = t, this.otherGeom = e, this.geomFact = e.getFactory();
                 }
-                function es() {
+                function as() {
                     this.sortIndex = -1, this.comps = null;
                     var t = arguments[0], e = arguments[1];
                     this.sortIndex = t, this.comps = e;
                 }
-                function ns() {
+                function us() {
                     this.inputPolys = null, this.geomFactory = null;
                     var t = arguments[0];
                     this.inputPolys = t, null === this.inputPolys && (this.inputPolys = new I());
                 }
-                function is() {
+                function ls() {
                     if (this.polygons = new I(), this.lines = new I(), this.points = new I(), this.geomFact = null, 
                     1 === arguments.length) {
                         if (R(arguments[0], v)) {
@@ -1944,39 +2102,6 @@
                         var n = arguments[0], i = arguments[1];
                         this.geomFact = i, this.extract(n);
                     }
-                }
-                function rs() {
-                    this.geometryFactory = new ie(), this.geomGraph = null, this.disconnectedRingcoord = null;
-                    var t = arguments[0];
-                    this.geomGraph = t;
-                }
-                function ss() {
-                    this.nodes = new xn(new Yr());
-                }
-                function os() {
-                    this.li = new ae(), this.geomGraph = null, this.nodeGraph = new ss(), this.invalidPoint = null;
-                    var t = arguments[0];
-                    this.geomGraph = t;
-                }
-                function as() {
-                    this.graph = null, this.rings = new I(), this.totalEnv = new C(), this.index = null, 
-                    this.nestedPt = null;
-                    var t = arguments[0];
-                    this.graph = t;
-                }
-                function us() {
-                    if (this.errorType = null, this.pt = null, 1 === arguments.length) {
-                        var t = arguments[0];
-                        us.call(this, t, null);
-                    } else if (2 === arguments.length) {
-                        var e = arguments[0], n = arguments[1];
-                        this.errorType = e, null !== n && (this.pt = n.copy());
-                    }
-                }
-                function ls() {
-                    this.parentGeometry = null, this.isSelfTouchingRingFormingHoleValid = !1, this.validErr = null;
-                    var t = arguments[0];
-                    this.parentGeometry = t;
                 }
                 function hs() {
                     _t.CoordinateOperation.apply(this), this.targetPM = null, this.removeCollapsed = !0;
@@ -2184,9 +2309,18 @@
                     this.diagramEnv = null;
                 }
                 function Zs() {}
-                Array.prototype.fill || (Array.prototype.fill = function(t) {
-                    for (var e = Object(this), n = parseInt(e.length, 10), i = arguments[1], r = parseInt(i, 10) || 0, s = 0 > r ? Math.max(n + r, 0) : Math.min(r, n), o = arguments[2], a = void 0 === o ? n : parseInt(o, 10) || 0, u = 0 > a ? Math.max(n + a, 0) : Math.min(a, n); u > s; s++) e[s] = t;
-                    return e;
+                "fill" in Array.prototype || Object.defineProperty(Array.prototype, "fill", {
+                    configurable: !0,
+                    value: function(t) {
+                        if (void 0 === this || null === this) throw new TypeError(this + " is not an object");
+                        var e = Object(this), n = Math.max(Math.min(e.length, 9007199254740991), 0) || 0, i = 1 in arguments ? parseInt(Number(arguments[1]), 10) || 0 : 0;
+                        i = i < 0 ? Math.max(n + i, 0) : Math.min(i, n);
+                        var r = 2 in arguments && void 0 !== arguments[2] ? parseInt(Number(arguments[2]), 10) || 0 : n;
+                        for (r = r < 0 ? Math.max(n + arguments[2], 0) : Math.min(r, n); i < r; ) e[i] = t, 
+                        ++i;
+                        return e;
+                    },
+                    writable: !0
                 }), Number.isFinite = Number.isFinite || function(t) {
                     return "number" == typeof t && isFinite(t);
                 }, Number.isInteger = Number.isInteger || function(t) {
@@ -2194,7 +2328,7 @@
                 }, Number.parseFloat = Number.parseFloat || parseFloat, Number.isNaN = Number.isNaN || function(t) {
                     return t !== t;
                 }, Math.trunc = Math.trunc || function(t) {
-                    return 0 > t ? Math.ceil(t) : Math.floor(t);
+                    return t < 0 ? Math.ceil(t) : Math.floor(t);
                 }, e(n.prototype, {
                     interfaces_: function() {
                         return [];
@@ -2270,11 +2404,11 @@
                     equals2D: function() {
                         if (1 === arguments.length) {
                             var t = arguments[0];
-                            return this.x !== t.x ? !1 : this.y === t.y;
+                            return this.x === t.x && this.y === t.y;
                         }
                         if (2 === arguments.length) {
                             var e = arguments[0], i = arguments[1];
-                            return n.equalsWithTolerance(this.x, e.x, i) ? !!n.equalsWithTolerance(this.y, e.y, i) : !1;
+                            return !!n.equalsWithTolerance(this.x, e.x, i) && !!n.equalsWithTolerance(this.y, e.y, i);
                         }
                     },
                     getOrdinate: function(t) {
@@ -2294,7 +2428,7 @@
                         return this.x === t.x && this.y === t.y && (this.z === t.z || r.isNaN(this.z) && r.isNaN(t.z));
                     },
                     equals: function(t) {
-                        return t instanceof g ? this.equals2D(t) : !1;
+                        return t instanceof g && this.equals2D(t);
                     },
                     equalInZ: function(t, e) {
                         return n.equalsWithTolerance(this.z, t.z, e);
@@ -2307,10 +2441,10 @@
                         try {
                             var t = null;
                             return t;
-                        } catch (e) {
-                            if (e instanceof CloneNotSupportedException) return f.shouldNeverReachHere("this shouldn't happen because this class is Cloneable"), 
+                        } catch (t) {
+                            if (t instanceof CloneNotSupportedException) return f.shouldNeverReachHere("this shouldn't happen because this class is Cloneable"), 
                             null;
-                            throw e;
+                            throw t;
                         } finally {}
                     },
                     copy: function() {
@@ -2362,7 +2496,7 @@
                         return d;
                     }
                 }), d.compare = function(t, e) {
-                    return e > t ? -1 : t > e ? 1 : r.isNaN(t) ? r.isNaN(e) ? 0 : -1 : r.isNaN(e) ? 1 : 0;
+                    return t < e ? -1 : t > e ? 1 : r.isNaN(t) ? r.isNaN(e) ? 0 : -1 : r.isNaN(e) ? 1 : 0;
                 }, g.DimensionalComparator = d, g.serialVersionUID = 0x5cbf2c235c7e5800, g.NULL_ORDINATE = r.NaN, 
                 g.X = 0, g.Y = 1, g.Z = 2, p.prototype.hasNext = function() {}, p.prototype.next = function() {}, 
                 p.prototype.remove = function() {}, v.prototype.add = function() {}, v.prototype.addAll = function() {}, 
@@ -2388,17 +2522,17 @@
                 }, I.prototype.iterator = function() {
                     return new Qs(this);
                 }, I.prototype.get = function(t) {
-                    if (0 > t || t >= this.size()) throw new m();
+                    if (t < 0 || t >= this.size()) throw new m();
                     return this.array_[t];
                 }, I.prototype.isEmpty = function() {
                     return 0 === this.array_.length;
                 }, I.prototype.size = function() {
                     return this.array_.length;
                 }, I.prototype.toArray = function() {
-                    for (var t = [], e = 0, n = this.array_.length; n > e; e++) t.push(this.array_[e]);
+                    for (var t = [], e = 0, n = this.array_.length; e < n; e++) t.push(this.array_[e]);
                     return t;
                 }, I.prototype.remove = function(t) {
-                    for (var e = !1, n = 0, i = this.array_.length; i > n; n++) if (this.array_[n] === t) {
+                    for (var e = !1, n = 0, i = this.array_.length; n < i; n++) if (this.array_[n] === t) {
                         this.array_.splice(n, 1), e = !0;
                         break;
                     }
@@ -2415,7 +2549,7 @@
                 }, Qs.prototype.set = function(t) {
                     return this.arrayList_.set(this.position_ - 1, t);
                 }, Qs.prototype.remove = function() {
-                    throw new E();
+                    this.arrayList_.remove(this.arrayList_.get(this.position_));
                 }, h(N, I), e(N.prototype, {
                     getCoordinate: function(t) {
                         return this.get(t);
@@ -2428,9 +2562,9 @@
                         }
                         return I.prototype.addAll.apply(this, arguments);
                     },
-                    clone: function Go() {
-                        for (var Go = I.prototype.clone.call(this), t = 0; t < this.size(); t++) Go.add(t, this.get(t).copy());
-                        return Go;
+                    clone: function t() {
+                        for (var t = I.prototype.clone.call(this), e = 0; e < this.size(); e++) t.add(e, this.get(e).copy());
+                        return t;
                     },
                     toCoordinateArray: function() {
                         return this.toArray(N.coordArrayType);
@@ -2470,7 +2604,7 @@
                                             var m = this.get(f - 1);
                                             if (m.equals2D(d)) return null;
                                         }
-                                        if (v > f) {
+                                        if (f < v) {
                                             var y = this.get(f);
                                             if (y.equals2D(d)) return null;
                                         }
@@ -2522,18 +2656,18 @@
                             }
                             if (arguments[0] instanceof C) {
                                 var e = arguments[0];
-                                return this.isNull() || e.isNull() ? !1 : e.getMinX() >= this.minx && e.getMaxX() <= this.maxx && e.getMinY() >= this.miny && e.getMaxY() <= this.maxy;
+                                return !this.isNull() && !e.isNull() && (e.getMinX() >= this.minx && e.getMaxX() <= this.maxx && e.getMinY() >= this.miny && e.getMaxY() <= this.maxy);
                             }
                         } else if (2 === arguments.length) {
                             var n = arguments[0], i = arguments[1];
-                            return this.isNull() ? !1 : n >= this.minx && n <= this.maxx && i >= this.miny && i <= this.maxy;
+                            return !this.isNull() && (n >= this.minx && n <= this.maxx && i >= this.miny && i <= this.maxy);
                         }
                     },
                     intersects: function() {
                         if (1 === arguments.length) {
                             if (arguments[0] instanceof C) {
                                 var t = arguments[0];
-                                return this.isNull() || t.isNull() ? !1 : !(t.minx > this.maxx || t.maxx < this.minx || t.miny > this.maxy || t.maxy < this.miny);
+                                return !this.isNull() && !t.isNull() && !(t.minx > this.maxx || t.maxx < this.minx || t.miny > this.maxy || t.maxy < this.miny);
                             }
                             if (arguments[0] instanceof g) {
                                 var e = arguments[0];
@@ -2541,7 +2675,7 @@
                             }
                         } else if (2 === arguments.length) {
                             var n = arguments[0], i = arguments[1];
-                            return this.isNull() ? !1 : !(n > this.maxx || n < this.minx || i > this.maxy || i < this.miny);
+                            return !this.isNull() && !(n > this.maxx || n < this.minx || i > this.maxy || i < this.miny);
                         }
                     },
                     getMinY: function() {
@@ -2571,7 +2705,7 @@
                     minExtent: function() {
                         if (this.isNull()) return 0;
                         var t = this.getWidth(), e = this.getHeight();
-                        return e > t ? t : e;
+                        return t < e ? t : e;
                     },
                     getWidth: function() {
                         return this.isNull() ? 0 : this.maxx - this.minx;
@@ -2639,7 +2773,7 @@
                             this.init(n.x, i.x, n.y, i.y);
                         } else if (4 === arguments.length) {
                             var r = arguments[0], s = arguments[1], o = arguments[2], a = arguments[3];
-                            s > r ? (this.minx = r, this.maxx = s) : (this.minx = s, this.maxx = r), a > o ? (this.miny = o, 
+                            r < s ? (this.minx = r, this.maxx = s) : (this.minx = s, this.maxx = r), o < a ? (this.miny = o, 
                             this.maxy = a) : (this.miny = a, this.maxy = o);
                         }
                     },
@@ -2672,8 +2806,8 @@
                     }
                     if (4 === arguments.length) {
                         var i = arguments[0], r = arguments[1], s = arguments[2], o = arguments[3], a = Math.min(s.x, o.x), u = Math.max(s.x, o.x), l = Math.min(i.x, r.x), h = Math.max(i.x, r.x);
-                        return l > u ? !1 : a > h ? !1 : (a = Math.min(s.y, o.y), u = Math.max(s.y, o.y), 
-                        l = Math.min(i.y, r.y), h = Math.max(i.y, r.y), l > u ? !1 : !(a > h));
+                        return !(l > u) && (!(h < a) && (a = Math.min(s.y, o.y), u = Math.max(s.y, o.y), 
+                        l = Math.min(i.y, r.y), h = Math.max(i.y, r.y), !(l > u) && !(h < a)));
                     }
                 }, C.serialVersionUID = 0x51845cd552189800, h(w, S), e(w.prototype, {
                     interfaces_: function() {
@@ -2716,18 +2850,18 @@
                     return r.isInfinite(e) ? e : r.isNaN(e) ? e : e / T.LOG_10;
                 }, T.min = function(t, e, n, i) {
                     var r = t;
-                    return r > e && (r = e), r > n && (r = n), r > i && (r = i), r;
+                    return e < r && (r = e), n < r && (r = n), i < r && (r = i), r;
                 }, T.clamp = function() {
                     if ("number" == typeof arguments[2] && "number" == typeof arguments[0] && "number" == typeof arguments[1]) {
                         var t = arguments[0], e = arguments[1], n = arguments[2];
-                        return e > t ? e : t > n ? n : t;
+                        return t < e ? e : t > n ? n : t;
                     }
                     if (Number.isInteger(arguments[2]) && Number.isInteger(arguments[0]) && Number.isInteger(arguments[1])) {
                         var i = arguments[0], r = arguments[1], s = arguments[2];
-                        return r > i ? r : i > s ? s : i;
+                        return i < r ? r : i > s ? s : i;
                     }
                 }, T.wrap = function(t, e) {
-                    return 0 > t ? e - -t % e : t % e;
+                    return t < 0 ? e - -t % e : t % e;
                 }, T.max = function() {
                     if (3 === arguments.length) {
                         var t = arguments[0], e = arguments[1], n = arguments[2], i = t;
@@ -2742,7 +2876,7 @@
                 }, T.LOG_10 = Math.log(10), P.prototype.append = function(t) {
                     this.str += t;
                 }, P.prototype.setCharAt = function(t, e) {
-                    return this.str.substr(0, t) + e + this.str.substr(t + 1);
+                    this.str = this.str.substr(0, t) + e + this.str.substr(t + 1);
                 }, P.prototype.toString = function(t) {
                     return this.str;
                 }, b.prototype.intValue = function() {
@@ -2752,7 +2886,7 @@
                 }, b.isNaN = function(t) {
                     return Number.isNaN(t);
                 }, O.isWhitespace = function(t) {
-                    return 32 >= t && t >= 0 || 127 == t;
+                    return t <= 32 && t >= 0 || 127 == t;
                 }, O.toUpperCase = function(t) {
                     return t.toUpperCase();
                 }, e(_.prototype, {
@@ -2763,15 +2897,15 @@
                         var n = this.abs(), i = _.magnitude(n.hi), r = _.TEN.pow(i);
                         n = n.divide(r), n.gt(_.TEN) ? (n = n.divide(_.TEN), i += 1) : n.lt(_.ONE) && (n = n.multiply(_.TEN), 
                         i -= 1);
-                        for (var s = i + 1, o = new P(), a = _.MAX_PRINT_DIGITS - 1, u = 0; a >= u; u++) {
+                        for (var s = i + 1, o = new P(), a = _.MAX_PRINT_DIGITS - 1, u = 0; u <= a; u++) {
                             t && u === s && o.append(".");
                             var l = Math.trunc(n.hi);
-                            if (0 > l) break;
+                            if (l < 0) break;
                             var h = !1, c = 0;
                             l > 9 ? (h = !0, c = "9") : c = "0" + l, o.append(c), n = n.subtract(_.valueOf(l)).multiply(_.TEN), 
                             h && n.selfAdd(_.TEN);
                             var f = !0, g = _.magnitude(n.hi);
-                            if (0 > g && Math.abs(g) >= a - u && (f = !1), !f) break;
+                            if (g < 0 && Math.abs(g) >= a - u && (f = !1), !f) break;
                         }
                         return e[0] = i, o.toString();
                     },
@@ -2858,7 +2992,7 @@
                         if (0 === t) return _.valueOf(1);
                         var e = new _(this), n = _.valueOf(1), i = Math.abs(t);
                         if (i > 1) for (;i > 0; ) i % 2 === 1 && n.selfMultiply(e), i /= 2, i > 0 && (e = e.sqr()); else n = e;
-                        return 0 > t ? n.reciprocal() : n;
+                        return t < 0 ? n.reciprocal() : n;
                     },
                     ceil: function() {
                         if (this.isNaN()) return _.NaN;
@@ -2942,7 +3076,7 @@
                         return t === this.hi && (e = Math.floor(this.lo)), new _(t, e);
                     },
                     negate: function() {
-                        return this.isNaN() ? this : new _((-this.hi), (-this.lo));
+                        return this.isNaN() ? this : new _(-this.hi, -this.lo);
                     },
                     clone: function() {
                         try {
@@ -2970,13 +3104,13 @@
                     },
                     toString: function() {
                         var t = _.magnitude(this.hi);
-                        return t >= -3 && 20 >= t ? this.toStandardNotation() : this.toSciNotation();
+                        return t >= -3 && t <= 20 ? this.toStandardNotation() : this.toSciNotation();
                     },
                     toStandardNotation: function() {
                         var t = this.getSpecialNumberString();
                         if (null !== t) return t;
                         var e = new Array(1).fill(null), n = this.extractSignificantDigits(!0, e), i = e[0] + 1, r = n;
-                        if ("." === n.charAt(0)) r = "0" + n; else if (0 > i) r = "0." + _.stringOfChar("0", -i) + n; else if (-1 === n.indexOf(".")) {
+                        if ("." === n.charAt(0)) r = "0" + n; else if (i < 0) r = "0." + _.stringOfChar("0", -i) + n; else if (n.indexOf(".") === -1) {
                             var s = i - n.length, o = _.stringOfChar("0", s);
                             r = n + o + ".0";
                         }
@@ -3068,7 +3202,7 @@
                 }, _.parse = function(t) {
                     for (var e = 0, n = t.length; O.isWhitespace(t.charAt(e)); ) e++;
                     var i = !1;
-                    if (n > e) {
+                    if (e < n) {
                         var r = t.charAt(e);
                         "-" !== r && "+" !== r || (e++, "-" === r && (i = !0));
                     }
@@ -3084,8 +3218,8 @@
                                     var c = t.substring(e);
                                     try {
                                         u = b.parseInt(c);
-                                    } catch (f) {
-                                        throw f instanceof NumberFormatException ? new NumberFormatException("Invalid exponent " + c + " in string " + t) : f;
+                                    } catch (e) {
+                                        throw e instanceof NumberFormatException ? new NumberFormatException("Invalid exponent " + c + " in string " + t) : e;
                                     } finally {}
                                     break;
                                 }
@@ -3094,24 +3228,24 @@
                             a = o;
                         }
                     }
-                    var g = s, d = o - a - u;
-                    if (0 === d) g = s; else if (d > 0) {
-                        var p = _.TEN.pow(d);
-                        g = s.divide(p);
-                    } else if (0 > d) {
-                        var p = _.TEN.pow(-d);
-                        g = s.multiply(p);
+                    var f = s, g = o - a - u;
+                    if (0 === g) f = s; else if (g > 0) {
+                        var d = _.TEN.pow(g);
+                        f = s.divide(d);
+                    } else if (g < 0) {
+                        var d = _.TEN.pow(-g);
+                        f = s.multiply(d);
                     }
-                    return i ? g.negate() : g;
+                    return i ? f.negate() : f;
                 }, _.createNaN = function() {
                     return new _(r.NaN, r.NaN);
                 }, _.copy = function(t) {
                     return new _(t);
                 }, _.magnitude = function(t) {
                     var e = Math.abs(t), n = Math.log(e) / Math.log(10), i = Math.trunc(Math.floor(n)), r = Math.pow(10, i);
-                    return e >= 10 * r && (i += 1), i;
+                    return 10 * r <= e && (i += 1), i;
                 }, _.stringOfChar = function(t, e) {
-                    for (var n = new P(), i = 0; e > i; i++) n.append(t);
+                    for (var n = new P(), i = 0; i < e; i++) n.append(t);
                     return n.toString();
                 }, _.PI = new _(3.141592653589793, 1.2246467991473532e-16), _.TWO_PI = new _(6.283185307179586, 2.4492935982947064e-16), 
                 _.PI_2 = new _(1.5707963267948966, 6.123233995736766e-17), _.E = new _(2.718281828459045, 1.4456468917292502e-16), 
@@ -3126,7 +3260,7 @@
                     }
                 }), M.orientationIndex = function(t, e, n) {
                     var i = M.orientationIndexFilter(t, e, n);
-                    if (1 >= i) return i;
+                    if (i <= 1) return i;
                     var r = _.valueOf(e.x).selfAdd(-t.x), s = _.valueOf(e.y).selfAdd(-t.y), o = _.valueOf(n.x).selfAdd(-e.x), a = _.valueOf(n.y).selfAdd(-e.y);
                     return r.selfMultiply(a).selfSubtract(s.selfMultiply(o)).signum();
                 }, M.signOfDet2x2 = function(t, e, n, i) {
@@ -3138,17 +3272,17 @@
                 }, M.orientationIndexFilter = function(t, e, n) {
                     var i = null, r = (t.x - n.x) * (e.y - n.y), s = (t.y - n.y) * (e.x - n.x), o = r - s;
                     if (r > 0) {
-                        if (0 >= s) return M.signum(o);
+                        if (s <= 0) return M.signum(o);
                         i = r + s;
                     } else {
-                        if (!(0 > r)) return M.signum(o);
+                        if (!(r < 0)) return M.signum(o);
                         if (s >= 0) return M.signum(o);
                         i = -r - s;
                     }
                     var a = M.DP_SAFE_EPSILON * i;
                     return o >= a || -o >= a ? M.signum(o) : 2;
                 }, M.signum = function(t) {
-                    return t > 0 ? 1 : 0 > t ? -1 : 0;
+                    return t > 0 ? 1 : t < 0 ? -1 : 0;
                 }, M.DP_SAFE_EPSILON = 1e-15, e(D.prototype, {
                     setOrdinate: function(t, e, n) {},
                     size: function() {},
@@ -3175,7 +3309,7 @@
                         return D;
                     }
                 }), D.X = 0, D.Y = 1, D.Z = 2, D.M = 3, A.arraycopy = function(t, e, n, i, r) {
-                    for (var s = 0, o = e; e + r > o; o++) n[i + s] = t[o], s++;
+                    for (var s = 0, o = e; o < e + r; o++) n[i + s] = t[o], s++;
                 }, A.getProperty = function(t) {
                     return {
                         "line.separator": "\n"
@@ -3251,7 +3385,7 @@
                         if (1 === arguments.length) {
                             if (arguments[0] instanceof B) {
                                 var t = arguments[0];
-                                return null === t ? !1 : this.equalsTopo(t);
+                                return null !== t && this.equalsTopo(t);
                             }
                             if (arguments[0] instanceof Object) {
                                 var e = arguments[0];
@@ -3271,7 +3405,7 @@
                         this.envelope = null;
                     },
                     equalsNorm: function(t) {
-                        return null === t ? !1 : this.norm().equalsExact(t.norm());
+                        return null !== t && this.norm().equalsExact(t.norm());
                     },
                     getLength: function() {
                         return 0;
@@ -3423,7 +3557,7 @@
                         return H;
                     }
                 }), H.isRing = function(t) {
-                    return t.length < 4 ? !1 : !!t[0].equals2D(t[t.length - 1]);
+                    return !(t.length < 4) && !!t[0].equals2D(t[t.length - 1]);
                 }, H.ptNotInList = function(t, e) {
                     for (var n = 0; n < t.length; n++) {
                         var i = t[n];
@@ -3432,7 +3566,7 @@
                     return null;
                 }, H.scroll = function(t, e) {
                     var n = H.indexOf(e, t);
-                    if (0 > n) return null;
+                    if (n < 0) return null;
                     var i = new Array(t.length).fill(null);
                     A.arraycopy(t, n, i, 0, t.length - n), A.arraycopy(t, 0, i, t.length - n, n), A.arraycopy(i, 0, t, 0, t.length);
                 }, H.equals = function() {
@@ -3460,10 +3594,10 @@
                     return !1;
                 }, H.removeRepeatedPoints = function(t) {
                     if (!H.hasRepeatedPoints(t)) return t;
-                    var e = new N(t, (!1));
+                    var e = new N(t, !1);
                     return e.toCoordinateArray();
                 }, H.reverse = function(t) {
-                    for (var e = t.length - 1, n = Math.trunc(e / 2), i = 0; n >= i; i++) {
+                    for (var e = t.length - 1, n = Math.trunc(e / 2), i = 0; i <= n; i++) {
                         var r = t[i];
                         t[i] = t[e - i], t[e - i] = r;
                     }
@@ -3478,7 +3612,7 @@
                         for (var t = arguments[0], e = new Array(t.length).fill(null), n = 0; n < t.length; n++) e[n] = new g(t[n]);
                         return e;
                     }
-                    if (5 === arguments.length) for (var i = arguments[0], r = arguments[1], s = arguments[2], o = arguments[3], a = arguments[4], n = 0; a > n; n++) s[o + n] = new g(i[r + n]);
+                    if (5 === arguments.length) for (var i = arguments[0], r = arguments[1], s = arguments[2], o = arguments[3], a = arguments[4], n = 0; n < a; n++) s[o + n] = new g(i[r + n]);
                 }, H.isEqualReversed = function(t, e) {
                     for (var n = 0; n < t.length; n++) {
                         var i = t[n], r = e[t.length - n - 1];
@@ -3514,10 +3648,10 @@
                 }, H.extract = function(t, e, n) {
                     e = T.clamp(e, 0, t.length), n = T.clamp(n, -1, t.length);
                     var i = n - e + 1;
-                    0 > n && (i = 0), e >= t.length && (i = 0), e > n && (i = 0);
+                    n < 0 && (i = 0), e >= t.length && (i = 0), n < e && (i = 0);
                     var r = new Array(i).fill(null);
                     if (0 === i) return r;
-                    for (var s = 0, o = e; n >= o; o++) r[s++] = t[o];
+                    for (var s = 0, o = e; o <= n; o++) r[s++] = t[o];
                     return r;
                 }, e(W.prototype, {
                     compare: function(t, e) {
@@ -3562,13 +3696,13 @@
                 K.prototype.values = function() {}, K.prototype.entrySet = function() {}, Z.prototype = new K(), 
                 Q.prototype = new v(), Q.prototype.contains = function() {}, J.prototype = new Q(), 
                 J.prototype.contains = function(t) {
-                    for (var e = 0, n = this.array_.length; n > e; e++) {
+                    for (var e = 0, n = this.array_.length; e < n; e++) {
                         var i = this.array_[e];
                         if (i === t) return !0;
                     }
                     return !1;
                 }, J.prototype.add = function(t) {
-                    return this.contains(t) ? !1 : (this.array_.push(t), !0);
+                    return !this.contains(t) && (this.array_.push(t), !0);
                 }, J.prototype.addAll = function(t) {
                     for (var e = t.iterator(); e.hasNext(); ) this.add(e.next());
                     return !0;
@@ -3579,7 +3713,7 @@
                 }, J.prototype.isEmpty = function() {
                     return 0 === this.array_.length;
                 }, J.prototype.toArray = function() {
-                    for (var t = [], e = 0, n = this.array_.length; n > e; e++) t.push(this.array_[e]);
+                    for (var t = [], e = 0, n = this.array_.length; e < n; e++) t.push(this.array_[e]);
                     return t;
                 }, J.prototype.iterator = function() {
                     return new Js(this);
@@ -3599,7 +3733,7 @@
                 rt.prototype = new Z(), rt.prototype.get = function(t) {
                     for (var e = this.root_; null !== e; ) {
                         var n = t.compareTo(e.key);
-                        if (0 > n) e = e.left; else {
+                        if (n < 0) e = e.left; else {
                             if (!(n > 0)) return e.value;
                             e = e.right;
                         }
@@ -3621,12 +3755,14 @@
                         }
                     }, this.size_ = 1, null;
                     var n, i, r = this.root_;
-                    do if (n = r, i = t.compareTo(r.key), 0 > i) r = r.left; else {
-                        if (!(i > 0)) {
-                            var s = r.value;
-                            return r.value = e, s;
+                    do {
+                        if (n = r, i = t.compareTo(r.key), i < 0) r = r.left; else {
+                            if (!(i > 0)) {
+                                var s = r.value;
+                                return r.value = e, s;
+                            }
+                            r = r.right;
                         }
-                        r = r.right;
                     } while (null !== r);
                     var o = {
                         key: t,
@@ -3642,7 +3778,7 @@
                             return this.key;
                         }
                     };
-                    return 0 > i ? n.left = o : n.right = o, this.fixAfterInsertion(o), this.size_++, 
+                    return i < 0 ? n.left = o : n.right = o, this.fixAfterInsertion(o), this.size_++, 
                     null;
                 }, rt.prototype.fixAfterInsertion = function(t) {
                     for (t.color = to; null != t && t != this.root_ && t.parent.color == to; ) if (tt(t) == nt(tt(tt(t)))) {
@@ -3698,14 +3834,14 @@
                         return st;
                     }
                 }), ot.prototype = new Q(), at.prototype = new ot(), at.prototype.contains = function(t) {
-                    for (var e = 0, n = this.array_.length; n > e; e++) {
+                    for (var e = 0, n = this.array_.length; e < n; e++) {
                         var i = this.array_[e];
                         if (0 === i.compareTo(t)) return !0;
                     }
                     return !1;
                 }, at.prototype.add = function(t) {
                     if (this.contains(t)) return !1;
-                    for (var e = 0, n = this.array_.length; n > e; e++) {
+                    for (var e = 0, n = this.array_.length; e < n; e++) {
                         var i = this.array_[e];
                         if (1 === i.compareTo(t)) return this.array_.splice(e, 0, t), !0;
                     }
@@ -3720,7 +3856,7 @@
                 }, at.prototype.isEmpty = function() {
                     return 0 === this.array_.length;
                 }, at.prototype.toArray = function() {
-                    for (var t = [], e = 0, n = this.array_.length; n > e; e++) t.push(this.array_[e]);
+                    for (var t = [], e = 0, n = this.array_.length; e < n; e++) t.push(this.array_[e]);
                     return t;
                 }, at.prototype.iterator = function() {
                     return new eo(this);
@@ -3758,7 +3894,7 @@
                         }
                     }
                 }, ut.asList = function(t) {
-                    for (var e = new I(), n = 0, i = t.length; i > n; n++) e.add(t[n]);
+                    for (var e = new I(), n = 0, i = t.length; n < i; n++) e.add(t[n]);
                     return e;
                 }, e(lt.prototype, {
                     interfaces_: function() {
@@ -3896,12 +4032,12 @@
                             return this.compare(e, n);
                         }
                         if (2 === arguments.length) {
-                            for (var i = arguments[0], r = arguments[1], s = i, o = this.getNumGeometries(), a = s.getNumGeometries(), u = 0; o > u && a > u; ) {
+                            for (var i = arguments[0], r = arguments[1], s = i, o = this.getNumGeometries(), a = s.getNumGeometries(), u = 0; u < o && u < a; ) {
                                 var l = this.getGeometryN(u), h = s.getGeometryN(u), c = l.compareToSameClass(h, r);
                                 if (0 !== c) return c;
                                 u++;
                             }
-                            return o > u ? 1 : a > u ? -1 : 0;
+                            return u < o ? 1 : u < a ? -1 : 0;
                         }
                     },
                     apply: function() {
@@ -3953,7 +4089,7 @@
                     equalsExact: function() {
                         if (2 === arguments.length) {
                             var t = arguments[0], e = arguments[1];
-                            return this.isEquivalentClass(t) ? ft.prototype.equalsExact.call(this, t, e) : !1;
+                            return !!this.isEquivalentClass(t) && ft.prototype.equalsExact.call(this, t, e);
                         }
                         return ft.prototype.equalsExact.apply(this, arguments);
                     },
@@ -4055,7 +4191,7 @@
                         return Nt;
                     }
                 }), Nt.chars = function(t, e) {
-                    for (var n = new Array(e).fill(null), i = 0; e > i; i++) n[i] = t;
+                    for (var n = new Array(e).fill(null), i = 0; i < e; i++) n[i] = t;
                     return new String(n);
                 }, Nt.getStackTrace = function() {
                     if (1 === arguments.length) {
@@ -4063,10 +4199,10 @@
                         return t.printStackTrace(n), e.toString();
                     }
                     if (2 === arguments.length) {
-                        for (var i = arguments[0], r = arguments[1], s = "", o = new mt(Nt.getStackTrace(i)), a = new It(o), u = 0; r > u; u++) try {
+                        for (var i = arguments[0], r = arguments[1], s = "", o = new mt(Nt.getStackTrace(i)), a = new It(o), u = 0; u < r; u++) try {
                             s += a.readLine() + Nt.NEWLINE;
-                        } catch (l) {
-                            if (!(l instanceof Et)) throw l;
+                        } catch (t) {
+                            if (!(t instanceof Et)) throw t;
                             f.shouldNeverReachHere();
                         } finally {}
                         return s;
@@ -4095,24 +4231,24 @@
                         return Ct;
                     }
                 }), Ct.copyCoord = function(t, e, n, i) {
-                    for (var r = Math.min(t.getDimension(), n.getDimension()), s = 0; r > s; s++) n.setOrdinate(i, s, t.getOrdinate(e, s));
+                    for (var r = Math.min(t.getDimension(), n.getDimension()), s = 0; s < r; s++) n.setOrdinate(i, s, t.getOrdinate(e, s));
                 }, Ct.isRing = function(t) {
                     var e = t.size();
-                    return 0 === e ? !0 : 3 >= e ? !1 : t.getOrdinate(0, D.X) === t.getOrdinate(e - 1, D.X) && t.getOrdinate(0, D.Y) === t.getOrdinate(e - 1, D.Y);
+                    return 0 === e || !(e <= 3) && (t.getOrdinate(0, D.X) === t.getOrdinate(e - 1, D.X) && t.getOrdinate(0, D.Y) === t.getOrdinate(e - 1, D.Y));
                 }, Ct.isEqual = function(t, e) {
                     var n = t.size(), i = e.size();
                     if (n !== i) return !1;
-                    for (var s = Math.min(t.getDimension(), e.getDimension()), o = 0; n > o; o++) for (var a = 0; s > a; a++) {
+                    for (var s = Math.min(t.getDimension(), e.getDimension()), o = 0; o < n; o++) for (var a = 0; a < s; a++) {
                         var u = t.getOrdinate(o, a), l = e.getOrdinate(o, a);
                         if (!(t.getOrdinate(o, a) === e.getOrdinate(o, a) || r.isNaN(u) && r.isNaN(l))) return !1;
                     }
                     return !0;
                 }, Ct.extend = function(t, e, n) {
                     var i = t.create(n, e.getDimension()), r = e.size();
-                    if (Ct.copy(e, 0, i, 0, r), r > 0) for (var s = r; n > s; s++) Ct.copy(e, r - 1, i, s, 1);
+                    if (Ct.copy(e, 0, i, 0, r), r > 0) for (var s = r; s < n; s++) Ct.copy(e, r - 1, i, s, 1);
                     return i;
                 }, Ct.reverse = function(t) {
-                    for (var e = t.size() - 1, n = Math.trunc(e / 2), i = 0; n >= i; i++) Ct.swap(t, i, e - i);
+                    for (var e = t.size() - 1, n = Math.trunc(e / 2), i = 0; i <= n; i++) Ct.swap(t, i, e - i);
                 }, Ct.swap = function(t, e, n) {
                     if (e === n) return null;
                     for (var i = 0; i < t.getDimension(); i++) {
@@ -4120,29 +4256,29 @@
                         t.setOrdinate(e, i, t.getOrdinate(n, i)), t.setOrdinate(n, i, r);
                     }
                 }, Ct.copy = function(t, e, n, i, r) {
-                    for (var s = 0; r > s; s++) Ct.copyCoord(t, e + s, n, i + s);
+                    for (var s = 0; s < r; s++) Ct.copyCoord(t, e + s, n, i + s);
                 }, Ct.toString = function() {
                     if (1 === arguments.length) {
                         var t = arguments[0], e = t.size();
                         if (0 === e) return "()";
                         var n = t.getDimension(), i = new P();
                         i.append("(");
-                        for (var r = 0; e > r; r++) {
+                        for (var r = 0; r < e; r++) {
                             r > 0 && i.append(" ");
-                            for (var s = 0; n > s; s++) s > 0 && i.append(","), i.append(Nt.toString(t.getOrdinate(r, s)));
+                            for (var s = 0; s < n; s++) s > 0 && i.append(","), i.append(Nt.toString(t.getOrdinate(r, s)));
                         }
                         return i.append(")"), i.toString();
                     }
                 }, Ct.ensureValidRing = function(t, e) {
                     var n = e.size();
                     if (0 === n) return e;
-                    if (3 >= n) return Ct.createClosedRing(t, e, 4);
+                    if (n <= 3) return Ct.createClosedRing(t, e, 4);
                     var i = e.getOrdinate(0, D.X) === e.getOrdinate(n - 1, D.X) && e.getOrdinate(0, D.Y) === e.getOrdinate(n - 1, D.Y);
                     return i ? e : Ct.createClosedRing(t, e, n + 1);
                 }, Ct.createClosedRing = function(t, e, n) {
                     var i = t.create(n, e.getDimension()), r = e.size();
                     Ct.copy(e, 0, i, 0, r);
-                    for (var s = r; n > s; s++) Ct.copy(e, 0, i, s, 1);
+                    for (var s = r; s < n; s++) Ct.copy(e, 0, i, s, 1);
                     return i;
                 }, h(St, B), e(St.prototype, {
                     computeEnvelopeInternal: function() {
@@ -4182,7 +4318,7 @@
                         return this.isClosed() ? lt.FALSE : 0;
                     },
                     isClosed: function() {
-                        return this.isEmpty() ? !1 : this.getCoordinateN(0).equals2D(this.getCoordinateN(this.getNumPoints() - 1));
+                        return !this.isEmpty() && this.getCoordinateN(0).equals2D(this.getCoordinateN(this.getNumPoints() - 1));
                     },
                     getEndPoint: function() {
                         return this.isEmpty() ? null : this.getPointN(this.getNumPoints() - 1);
@@ -4298,7 +4434,7 @@
                     equalsExact: function() {
                         if (2 === arguments.length) {
                             var t = arguments[0], e = arguments[1];
-                            return this.isEquivalentClass(t) ? this.isEmpty() && t.isEmpty() ? !0 : this.isEmpty() !== t.isEmpty() ? !1 : this.equal(t.getCoordinate(), this.getCoordinate(), e) : !1;
+                            return !!this.isEquivalentClass(t) && (!(!this.isEmpty() || !t.isEmpty()) || this.isEmpty() === t.isEmpty() && this.equal(t.getCoordinate(), this.getCoordinate(), e));
                         }
                         return B.prototype.equalsExact.apply(this, arguments);
                     },
@@ -4417,13 +4553,13 @@
                         if (0 !== this.getNumInteriorRing()) return !1;
                         if (null === this.shell) return !1;
                         if (5 !== this.shell.getNumPoints()) return !1;
-                        for (var t = this.shell.getCoordinateSequence(), e = this.getEnvelopeInternal(), n = 0; 5 > n; n++) {
+                        for (var t = this.shell.getCoordinateSequence(), e = this.getEnvelopeInternal(), n = 0; n < 5; n++) {
                             var i = t.getX(n);
                             if (i !== e.getMinX() && i !== e.getMaxX()) return !1;
                             var r = t.getY(n);
                             if (r !== e.getMinY() && r !== e.getMaxY()) return !1;
                         }
-                        for (var s = t.getX(0), o = t.getY(0), n = 1; 4 >= n; n++) {
+                        for (var s = t.getX(0), o = t.getY(0), n = 1; n <= 4; n++) {
                             var i = t.getX(n), r = t.getY(n), a = i !== s, u = r !== o;
                             if (a === u) return !1;
                             s = i, o = r;
@@ -4496,12 +4632,12 @@
                         if (2 === arguments.length) {
                             var i = arguments[0], r = arguments[1], s = i, e = this.shell, n = s.shell, o = e.compareToSameClass(n, r);
                             if (0 !== o) return o;
-                            for (var a = this.getNumInteriorRing(), u = s.getNumInteriorRing(), l = 0; a > l && u > l; ) {
+                            for (var a = this.getNumInteriorRing(), u = s.getNumInteriorRing(), l = 0; l < a && l < u; ) {
                                 var h = this.getInteriorRingN(l), c = s.getInteriorRingN(l), f = h.compareToSameClass(c, r);
                                 if (0 !== f) return f;
                                 l++;
                             }
-                            return a > l ? 1 : u > l ? -1 : 0;
+                            return l < a ? 1 : l < u ? -1 : 0;
                         }
                     },
                     apply: function() {
@@ -4568,7 +4704,7 @@
                     equalsExact: function() {
                         if (2 === arguments.length) {
                             var t = arguments[0], e = arguments[1];
-                            return this.isEquivalentClass(t) ? ft.prototype.equalsExact.call(this, t, e) : !1;
+                            return !!this.isEquivalentClass(t) && ft.prototype.equalsExact.call(this, t, e);
                         }
                         return ft.prototype.equalsExact.apply(this, arguments);
                     },
@@ -4609,7 +4745,7 @@
                         return lt.FALSE;
                     },
                     isClosed: function() {
-                        return this.isEmpty() ? !0 : St.prototype.isClosed.call(this);
+                        return !!this.isEmpty() || St.prototype.isClosed.call(this);
                     },
                     reverse: function() {
                         var t = this.points.copy();
@@ -4641,7 +4777,7 @@
                     equalsExact: function() {
                         if (2 === arguments.length) {
                             var t = arguments[0], e = arguments[1];
-                            return this.isEquivalentClass(t) ? ft.prototype.equalsExact.call(this, t, e) : !1;
+                            return !!this.isEquivalentClass(t) && ft.prototype.equalsExact.call(this, t, e);
                         }
                         return ft.prototype.equalsExact.apply(this, arguments);
                     },
@@ -4723,13 +4859,8 @@
                     }
                 }), e(At.prototype, {
                     edit: function(t, e) {
-                        if (t instanceof bt) return e.createLinearRing(this.editCoordinates(t.getCoordinates(), t));
-                        if (t instanceof St) return e.createLineString(this.editCoordinates(t.getCoordinates(), t));
-                        if (t instanceof Lt) {
-                            var n = this.editCoordinates(t.getCoordinates(), t);
-                            return n.length > 0 ? e.createPoint(n[0]) : e.createPoint();
-                        }
-                        return t;
+                        var n = this.editCoordinates(t.getCoordinates(), t);
+                        return null === n ? t : t instanceof bt ? e.createLinearRing(n) : t instanceof St ? e.createLineString(n) : t instanceof Lt ? n.length > 0 ? e.createPoint(n[0]) : e.createPoint() : t;
                     },
                     interfaces_: function() {
                         return [ Mt ];
@@ -4851,7 +4982,7 @@
                             }
                         } else if (2 === arguments.length) {
                             var n = arguments[0], i = arguments[1];
-                            return i > 3 && (i = 3), 2 > i ? new Gt(n) : new Gt(n, i);
+                            return i > 3 && (i = 3), i < 2 ? new Gt(n) : new Gt(n, i);
                         }
                     },
                     interfaces_: function() {
@@ -5156,7 +5287,7 @@
                         var e, n, i;
                         t = t.replace(/[\n\r]/g, " ");
                         var r = oo.typeStr.exec(t);
-                        if (-1 !== t.search("EMPTY") && (r = oo.emptyTypeStr.exec(t), r[2] = void 0), r && (n = r[1].toLowerCase(), 
+                        if (t.search("EMPTY") !== -1 && (r = oo.emptyTypeStr.exec(t), r[2] = void 0), r && (n = r[1].toLowerCase(), 
                         i = r[2], uo[n] && (e = uo[n].apply(this, [ i ]))), void 0 === e) throw new Error("Could not parse WKT " + t);
                         return e;
                     },
@@ -5178,33 +5309,33 @@
                         return ao.coordinate.call(this, t.coordinates.coordinates[0]);
                     },
                     multipoint: function(t) {
-                        for (var e = [], n = 0, i = t.geometries.length; i > n; ++n) e.push("(" + ao.point.apply(this, [ t.geometries[n] ]) + ")");
+                        for (var e = [], n = 0, i = t.geometries.length; n < i; ++n) e.push("(" + ao.point.apply(this, [ t.geometries[n] ]) + ")");
                         return e.join(",");
                     },
                     linestring: function(t) {
-                        for (var e = [], n = 0, i = t.points.coordinates.length; i > n; ++n) e.push(ao.coordinate.apply(this, [ t.points.coordinates[n] ]));
+                        for (var e = [], n = 0, i = t.points.coordinates.length; n < i; ++n) e.push(ao.coordinate.apply(this, [ t.points.coordinates[n] ]));
                         return e.join(",");
                     },
                     linearring: function(t) {
-                        for (var e = [], n = 0, i = t.points.coordinates.length; i > n; ++n) e.push(ao.coordinate.apply(this, [ t.points.coordinates[n] ]));
+                        for (var e = [], n = 0, i = t.points.coordinates.length; n < i; ++n) e.push(ao.coordinate.apply(this, [ t.points.coordinates[n] ]));
                         return e.join(",");
                     },
                     multilinestring: function(t) {
-                        for (var e = [], n = 0, i = t.geometries.length; i > n; ++n) e.push("(" + ao.linestring.apply(this, [ t.geometries[n] ]) + ")");
+                        for (var e = [], n = 0, i = t.geometries.length; n < i; ++n) e.push("(" + ao.linestring.apply(this, [ t.geometries[n] ]) + ")");
                         return e.join(",");
                     },
                     polygon: function(t) {
                         var e = [];
                         e.push("(" + ao.linestring.apply(this, [ t.shell ]) + ")");
-                        for (var n = 0, i = t.holes.length; i > n; ++n) e.push("(" + ao.linestring.apply(this, [ t.holes[n] ]) + ")");
+                        for (var n = 0, i = t.holes.length; n < i; ++n) e.push("(" + ao.linestring.apply(this, [ t.holes[n] ]) + ")");
                         return e.join(",");
                     },
                     multipolygon: function(t) {
-                        for (var e = [], n = 0, i = t.geometries.length; i > n; ++n) e.push("(" + ao.polygon.apply(this, [ t.geometries[n] ]) + ")");
+                        for (var e = [], n = 0, i = t.geometries.length; n < i; ++n) e.push("(" + ao.polygon.apply(this, [ t.geometries[n] ]) + ")");
                         return e.join(",");
                     },
                     geometrycollection: function(t) {
-                        for (var e = [], n = 0, i = t.geometries.length; i > n; ++n) e.push(this.extractGeometry(t.geometries[n]));
+                        for (var e = [], n = 0, i = t.geometries.length; n < i; ++n) e.push(this.extractGeometry(t.geometries[n]));
                         return e.join(",");
                     }
                 }, uo = {
@@ -5215,45 +5346,45 @@
                     },
                     multipoint: function(t) {
                         if (void 0 === t) return this.geometryFactory.createMultiPoint();
-                        for (var e, n = t.trim().split(","), i = [], r = 0, s = n.length; s > r; ++r) e = n[r].replace(oo.trimParens, "$1"), 
+                        for (var e, n = t.trim().split(","), i = [], r = 0, s = n.length; r < s; ++r) e = n[r].replace(oo.trimParens, "$1"), 
                         i.push(uo.point.apply(this, [ e ]));
                         return this.geometryFactory.createMultiPoint(i);
                     },
                     linestring: function(t) {
                         if (void 0 === t) return this.geometryFactory.createLineString();
-                        for (var e, n = t.trim().split(","), i = [], r = 0, s = n.length; s > r; ++r) e = n[r].trim().split(oo.spaces), 
+                        for (var e, n = t.trim().split(","), i = [], r = 0, s = n.length; r < s; ++r) e = n[r].trim().split(oo.spaces), 
                         i.push(new g(Number.parseFloat(e[0]), Number.parseFloat(e[1])));
                         return this.geometryFactory.createLineString(i);
                     },
                     linearring: function(t) {
                         if (void 0 === t) return this.geometryFactory.createLinearRing();
-                        for (var e, n = t.trim().split(","), i = [], r = 0, s = n.length; s > r; ++r) e = n[r].trim().split(oo.spaces), 
+                        for (var e, n = t.trim().split(","), i = [], r = 0, s = n.length; r < s; ++r) e = n[r].trim().split(oo.spaces), 
                         i.push(new g(Number.parseFloat(e[0]), Number.parseFloat(e[1])));
                         return this.geometryFactory.createLinearRing(i);
                     },
                     multilinestring: function(t) {
                         if (void 0 === t) return this.geometryFactory.createMultiLineString();
-                        for (var e, n = t.trim().split(oo.parenComma), i = [], r = 0, s = n.length; s > r; ++r) e = n[r].replace(oo.trimParens, "$1"), 
+                        for (var e, n = t.trim().split(oo.parenComma), i = [], r = 0, s = n.length; r < s; ++r) e = n[r].replace(oo.trimParens, "$1"), 
                         i.push(uo.linestring.apply(this, [ e ]));
                         return this.geometryFactory.createMultiLineString(i);
                     },
                     polygon: function(t) {
                         if (void 0 === t) return this.geometryFactory.createPolygon();
-                        for (var e, n, i, r, s = t.trim().split(oo.parenComma), o = [], a = 0, u = s.length; u > a; ++a) e = s[a].replace(oo.trimParens, "$1"), 
+                        for (var e, n, i, r, s = t.trim().split(oo.parenComma), o = [], a = 0, u = s.length; a < u; ++a) e = s[a].replace(oo.trimParens, "$1"), 
                         n = uo.linestring.apply(this, [ e ]), i = this.geometryFactory.createLinearRing(n.points), 
                         0 === a ? r = i : o.push(i);
                         return this.geometryFactory.createPolygon(r, o);
                     },
                     multipolygon: function(t) {
                         if (void 0 === t) return this.geometryFactory.createMultiPolygon();
-                        for (var e, n = t.trim().split(oo.doubleParenComma), i = [], r = 0, s = n.length; s > r; ++r) e = n[r].replace(oo.trimParens, "$1"), 
+                        for (var e, n = t.trim().split(oo.doubleParenComma), i = [], r = 0, s = n.length; r < s; ++r) e = n[r].replace(oo.trimParens, "$1"), 
                         i.push(uo.polygon.apply(this, [ e ]));
                         return this.geometryFactory.createMultiPolygon(i);
                     },
                     geometrycollection: function(t) {
                         if (void 0 === t) return this.geometryFactory.createGeometryCollection();
                         t = t.replace(/,\s*([A-Za-z])/g, "|$1");
-                        for (var e = t.trim().split("|"), n = [], i = 0, r = e.length; r > i; ++i) n.push(this.read(e[i]));
+                        for (var e = t.trim().split("|"), n = [], i = 0, r = e.length; i < r; ++i) n.push(this.read(e[i]));
                         return this.geometryFactory.createGeometryCollection(n);
                     }
                 };
@@ -5298,7 +5429,7 @@
                         this.precisionModel = t;
                     },
                     isInteriorIntersection: function() {
-                        if (0 === arguments.length) return this.isInteriorIntersection(0) ? !0 : !!this.isInteriorIntersection(1);
+                        if (0 === arguments.length) return !!this.isInteriorIntersection(0) || !!this.isInteriorIntersection(1);
                         if (1 === arguments.length) {
                             for (var t = arguments[0], e = 0; e < this.result; e++) if (!this.intPt[e].equals2D(this.inputLines[t][0]) && !this.intPt[e].equals2D(this.inputLines[t][1])) return !0;
                             return !1;
@@ -5407,16 +5538,16 @@
                         this.intPt[1] = e, !i.equals(e) || r || o ? oe.COLLINEAR_INTERSECTION : oe.POINT_INTERSECTION) : oe.NO_INTERSECTION;
                     },
                     normalizeToEnvCentre: function(t, e, n, i, r) {
-                        var s = t.x < e.x ? t.x : e.x, o = t.y < e.y ? t.y : e.y, a = t.x > e.x ? t.x : e.x, u = t.y > e.y ? t.y : e.y, l = n.x < i.x ? n.x : i.x, h = n.y < i.y ? n.y : i.y, c = n.x > i.x ? n.x : i.x, f = n.y > i.y ? n.y : i.y, g = s > l ? s : l, d = c > a ? a : c, p = o > h ? o : h, v = f > u ? u : f, m = (g + d) / 2, y = (p + v) / 2;
+                        var s = t.x < e.x ? t.x : e.x, o = t.y < e.y ? t.y : e.y, a = t.x > e.x ? t.x : e.x, u = t.y > e.y ? t.y : e.y, l = n.x < i.x ? n.x : i.x, h = n.y < i.y ? n.y : i.y, c = n.x > i.x ? n.x : i.x, f = n.y > i.y ? n.y : i.y, g = s > l ? s : l, d = a < c ? a : c, p = o > h ? o : h, v = u < f ? u : f, m = (g + d) / 2, y = (p + v) / 2;
                         r.x = m, r.y = y, t.x -= r.x, t.y -= r.y, e.x -= r.x, e.y -= r.y, n.x -= r.x, n.y -= r.y, 
                         i.x -= r.x, i.y -= r.y;
                     },
                     computeIntersect: function(t, e, n, i) {
                         if (this._isProper = !1, !C.intersects(t, e, n, i)) return oe.NO_INTERSECTION;
                         var r = he.orientationIndex(t, e, n), s = he.orientationIndex(t, e, i);
-                        if (r > 0 && s > 0 || 0 > r && 0 > s) return oe.NO_INTERSECTION;
+                        if (r > 0 && s > 0 || r < 0 && s < 0) return oe.NO_INTERSECTION;
                         var o = he.orientationIndex(n, i, t), a = he.orientationIndex(n, i, e);
-                        if (o > 0 && a > 0 || 0 > o && 0 > a) return oe.NO_INTERSECTION;
+                        if (o > 0 && a > 0 || o < 0 && a < 0) return oe.NO_INTERSECTION;
                         var u = 0 === r && 0 === s && 0 === o && 0 === a;
                         return u ? this.computeCollinearIntersection(t, e, n, i) : (0 === r || 0 === s || 0 === o || 0 === a ? (this._isProper = !1, 
                         t.equals2D(n) || t.equals2D(i) ? this.intPt[0] = t : e.equals2D(n) || e.equals2D(i) ? this.intPt[0] = e : 0 === r ? this.intPt[0] = new g(n) : 0 === s ? this.intPt[0] = new g(i) : 0 === o ? this.intPt[0] = new g(t) : 0 === a && (this.intPt[0] = new g(e))) : (this._isProper = !0, 
@@ -5430,8 +5561,8 @@
                     }
                 }), ae.nearestEndpoint = function(t, e, n, i) {
                     var r = t, s = he.distancePointLine(t, n, i), o = he.distancePointLine(e, n, i);
-                    return s > o && (s = o, r = e), o = he.distancePointLine(n, t, e), s > o && (s = o, 
-                    r = n), o = he.distancePointLine(i, t, e), s > o && (s = o, r = i), r;
+                    return o < s && (s = o, r = e), o = he.distancePointLine(n, t, e), o < s && (s = o, 
+                    r = n), o = he.distancePointLine(i, t, e), o < s && (s = o, r = i), r;
                 }, e(ue.prototype, {
                     interfaces_: function() {
                         return [];
@@ -5446,33 +5577,33 @@
                     var r = null, s = null, o = null, a = 0;
                     if (r = 1, 0 === t || 0 === i) return 0 === e || 0 === n ? 0 : e > 0 ? n > 0 ? -r : r : n > 0 ? r : -r;
                     if (0 === e || 0 === n) return i > 0 ? t > 0 ? r : -r : t > 0 ? -r : r;
-                    if (e > 0 ? i > 0 ? i >= e || (r = -r, s = t, t = n, n = s, s = e, e = i, i = s) : -i >= e ? (r = -r, 
-                    n = -n, i = -i) : (s = t, t = -n, n = s, s = e, e = -i, i = s) : i > 0 ? i >= -e ? (r = -r, 
+                    if (0 < e ? 0 < i ? e <= i || (r = -r, s = t, t = n, n = s, s = e, e = i, i = s) : e <= -i ? (r = -r, 
+                    n = -n, i = -i) : (s = t, t = -n, n = s, s = e, e = -i, i = s) : 0 < i ? -e <= i ? (r = -r, 
                     t = -t, e = -e) : (s = -t, t = n, n = s, s = -e, e = i, i = s) : e >= i ? (t = -t, 
                     e = -e, n = -n, i = -i) : (r = -r, s = -t, t = -n, n = s, s = -e, e = -i, i = s), 
-                    t > 0) {
-                        if (!(n > 0)) return r;
-                        if (!(n >= t)) return r;
+                    0 < t) {
+                        if (!(0 < n)) return r;
+                        if (!(t <= n)) return r;
                     } else {
-                        if (n > 0) return -r;
+                        if (0 < n) return -r;
                         if (!(t >= n)) return -r;
                         r = -r, t = -t, n = -n;
                     }
                     for (;;) {
-                        if (a += 1, o = Math.floor(n / t), n -= o * t, i -= o * e, 0 > i) return -r;
+                        if (a += 1, o = Math.floor(n / t), n -= o * t, i -= o * e, i < 0) return -r;
                         if (i > e) return r;
                         if (t > n + n) {
-                            if (i + i > e) return r;
+                            if (e < i + i) return r;
                         } else {
                             if (e > i + i) return -r;
                             n = t - n, i = e - i, r = -r;
                         }
                         if (0 === i) return 0 === n ? 0 : -r;
                         if (0 === n) return r;
-                        if (o = Math.floor(t / n), t -= o * n, e -= o * i, 0 > e) return r;
+                        if (o = Math.floor(t / n), t -= o * n, e -= o * i, e < 0) return r;
                         if (e > i) return -r;
                         if (n > t + t) {
-                            if (e + e > i) return -r;
+                            if (i < e + e) return -r;
                         } else {
                             if (i > e + e) return r;
                             t = n - t, e = i - e, r = -r;
@@ -5492,7 +5623,7 @@
                         if (t.y > this.p.y && e.y <= this.p.y || e.y > this.p.y && t.y <= this.p.y) {
                             var r = t.x - this.p.x, s = t.y - this.p.y, o = e.x - this.p.x, a = e.y - this.p.y, u = ue.signOfDet2x2(r, s, o, a);
                             if (0 === u) return this.isPointOnSegment = !0, null;
-                            s > a && (u = -u), u > 0 && this.crossingCount++;
+                            a < s && (u = -u), u > 0 && this.crossingCount++;
                         }
                     },
                     isPointInPolygon: function() {
@@ -5544,12 +5675,12 @@
                     }
                     if (R(arguments[0], D)) {
                         var a = arguments[0], u = a.size();
-                        if (3 > u) return 0;
+                        if (u < 3) return 0;
                         var l = new g(), h = new g(), c = new g();
                         a.getCoordinate(0, h), a.getCoordinate(1, c);
                         var n = h.x;
                         c.x -= n;
-                        for (var e = 0, i = 1; u - 1 > i; i++) l.y = h.y, h.x = c.x, h.y = c.y, a.getCoordinate(i + 1, c), 
+                        for (var e = 0, i = 1; i < u - 1; i++) l.y = h.y, h.x = c.x, h.y = c.y, a.getCoordinate(i + 1, c), 
                         c.x -= n, e += h.x * (l.y - c.y);
                         return e / 2;
                     }
@@ -5561,7 +5692,7 @@
                         var s = (e.x - t.x) * (i.y - n.y) - (e.y - t.y) * (i.x - n.x);
                         if (0 === s) r = !0; else {
                             var o = (t.y - n.y) * (i.x - n.x) - (t.x - n.x) * (i.y - n.y), a = (t.y - n.y) * (e.x - t.x) - (t.x - n.x) * (e.y - t.y), u = a / s, l = o / s;
-                            (0 > l || l > 1 || 0 > u || u > 1) && (r = !0);
+                            (l < 0 || l > 1 || u < 0 || u > 1) && (r = !0);
                         }
                     } else r = !0;
                     return r ? T.min(he.distancePointLine(t, n, i), he.distancePointLine(e, n, i), he.distancePointLine(n, t, e), he.distancePointLine(i, t, e)) : 0;
@@ -5569,10 +5700,10 @@
                     return he.locatePointInRing(t, e) !== L.EXTERIOR;
                 }, he.computeLength = function(t) {
                     var e = t.size();
-                    if (1 >= e) return 0;
+                    if (e <= 1) return 0;
                     var n = 0, i = new g();
                     t.getCoordinate(0, i);
-                    for (var r = i.x, s = i.y, o = 1; e > o; o++) {
+                    for (var r = i.x, s = i.y, o = 1; o < e; o++) {
                         t.getCoordinate(o, i);
                         var a = i.x, u = i.y, l = a - r, h = u - s;
                         n += Math.sqrt(l * l + h * h), r = a, s = u;
@@ -5580,15 +5711,19 @@
                     return n;
                 }, he.isCCW = function(t) {
                     var e = t.length - 1;
-                    if (3 > e) throw new i("Ring has fewer than 4 points, so orientation cannot be determined");
-                    for (var n = t[0], r = 0, s = 1; e >= s; s++) {
+                    if (e < 3) throw new i("Ring has fewer than 4 points, so orientation cannot be determined");
+                    for (var n = t[0], r = 0, s = 1; s <= e; s++) {
                         var o = t[s];
                         o.y > n.y && (n = o, r = s);
                     }
                     var a = r;
-                    do a -= 1, 0 > a && (a = e); while (t[a].equals2D(n) && a !== r);
+                    do {
+                        a -= 1, a < 0 && (a = e);
+                    } while (t[a].equals2D(n) && a !== r);
                     var u = r;
-                    do u = (u + 1) % e; while (t[u].equals2D(n) && u !== r);
+                    do {
+                        u = (u + 1) % e;
+                    } while (t[u].equals2D(n) && u !== r);
                     var l = t[a], h = t[u];
                     if (l.equals2D(n) || h.equals2D(n) || l.equals2D(h)) return !1;
                     var c = he.computeOrientation(l, n, h), f = !1;
@@ -5606,7 +5741,7 @@
                         if (0 === e.length) throw new i("Line array must contain at least one vertex");
                         for (var n = t.distance(e[0]), r = 0; r < e.length - 1; r++) {
                             var s = he.distancePointLine(t, e[r], e[r + 1]);
-                            n > s && (n = s);
+                            s < n && (n = s);
                         }
                         return n;
                     }
@@ -5614,7 +5749,7 @@
                         var o = arguments[0], a = arguments[1], u = arguments[2];
                         if (a.x === u.x && a.y === u.y) return o.distance(a);
                         var l = (u.x - a.x) * (u.x - a.x) + (u.y - a.y) * (u.y - a.y), h = ((o.x - a.x) * (u.x - a.x) + (o.y - a.y) * (u.y - a.y)) / l;
-                        if (0 >= h) return o.distance(a);
+                        if (h <= 0) return o.distance(a);
                         if (h >= 1) return o.distance(u);
                         var c = ((a.y - o.y) * (u.x - a.x) - (a.x - o.x) * (u.y - a.y)) / l;
                         return Math.abs(c) * Math.sqrt(l);
@@ -5633,7 +5768,7 @@
                     orientationIndex: function() {
                         if (arguments[0] instanceof ce) {
                             var t = arguments[0], e = he.orientationIndex(this.p0, this.p1, t.p0), n = he.orientationIndex(this.p0, this.p1, t.p1);
-                            return e >= 0 && n >= 0 ? Math.max(e, n) : 0 >= e && 0 >= n ? Math.max(e, n) : 0;
+                            return e >= 0 && n >= 0 ? Math.max(e, n) : e <= 0 && n <= 0 ? Math.max(e, n) : 0;
                         }
                         if (arguments[0] instanceof g) {
                             var i = arguments[0];
@@ -5666,11 +5801,11 @@
                         if (arguments[0] instanceof ce) {
                             var i = arguments[0], r = this.projectionFactor(i.p0), s = this.projectionFactor(i.p1);
                             if (r >= 1 && s >= 1) return null;
-                            if (0 >= r && 0 >= s) return null;
+                            if (r <= 0 && s <= 0) return null;
                             var o = this.project(i.p0);
-                            0 > r && (o = this.p0), r > 1 && (o = this.p1);
+                            r < 0 && (o = this.p0), r > 1 && (o = this.p1);
                             var a = this.project(i.p1);
-                            return 0 > s && (a = this.p0), s > 1 && (a = this.p1), new ce(o, a);
+                            return s < 0 && (a = this.p0), s > 1 && (a = this.p1), new ce(o, a);
                         }
                     },
                     normalize: function() {
@@ -5695,7 +5830,7 @@
                         if (t.equals(this.p0)) return 0;
                         if (t.equals(this.p1)) return 1;
                         var e = this.p1.x - this.p0.x, n = this.p1.y - this.p0.y, i = e * e + n * n;
-                        if (0 >= i) return r.NaN;
+                        if (i <= 0) return r.NaN;
                         var s = ((t.x - this.p0.x) * e + (t.y - this.p0.y) * n) / i;
                         return s;
                     },
@@ -5705,17 +5840,17 @@
                         var n = new Array(2).fill(null), i = r.MAX_VALUE, s = null, o = this.closestPoint(t.p0);
                         i = o.distance(t.p0), n[0] = o, n[1] = t.p0;
                         var a = this.closestPoint(t.p1);
-                        s = a.distance(t.p1), i > s && (i = s, n[0] = a, n[1] = t.p1);
+                        s = a.distance(t.p1), s < i && (i = s, n[0] = a, n[1] = t.p1);
                         var u = t.closestPoint(this.p0);
-                        s = u.distance(this.p0), i > s && (i = s, n[0] = this.p0, n[1] = u);
+                        s = u.distance(this.p0), s < i && (i = s, n[0] = this.p0, n[1] = u);
                         var l = t.closestPoint(this.p1);
-                        return s = l.distance(this.p1), i > s && (i = s, n[0] = this.p1, n[1] = l), n;
+                        return s = l.distance(this.p1), s < i && (i = s, n[0] = this.p1, n[1] = l), n;
                     },
                     closestPoint: function(t) {
                         var e = this.projectionFactor(t);
-                        if (e > 0 && 1 > e) return this.project(t);
+                        if (e > 0 && e < 1) return this.project(t);
                         var n = this.p0.distance(t), i = this.p1.distance(t);
-                        return i > n ? this.p0 : this.p1;
+                        return n < i ? this.p0 : this.p1;
                     },
                     maxX: function() {
                         return Math.max(this.p0.x, this.p1.x);
@@ -5738,8 +5873,8 @@
                         try {
                             var e = F.intersection(this.p0, this.p1, t.p0, t.p1);
                             return e;
-                        } catch (n) {
-                            if (!(n instanceof w)) throw n;
+                        } catch (t) {
+                            if (!(t instanceof w)) throw t;
                         } finally {}
                         return null;
                     },
@@ -5749,7 +5884,7 @@
                     pointAlongOffset: function(t, e) {
                         var n = this.p0.x + t * (this.p1.x - this.p0.x), i = this.p0.y + t * (this.p1.y - this.p0.y), r = this.p1.x - this.p0.x, s = this.p1.y - this.p0.y, o = Math.sqrt(r * r + s * s), a = 0, u = 0;
                         if (0 !== e) {
-                            if (0 >= o) throw new IllegalStateException("Cannot compute offset from zero-length line segment");
+                            if (o <= 0) throw new IllegalStateException("Cannot compute offset from zero-length line segment");
                             a = e * r / o, u = e * s / o;
                         }
                         var l = n - u, h = i + a, c = new g(l, h);
@@ -5766,7 +5901,7 @@
                     },
                     segmentFraction: function(t) {
                         var e = this.projectionFactor(t);
-                        return 0 > e ? e = 0 : (e > 1 || r.isNaN(e)) && (e = 1), e;
+                        return e < 0 ? e = 0 : (e > 1 || r.isNaN(e)) && (e = 1), e;
                     },
                     toString: function() {
                         return "LINESTRING( " + this.p0.x + " " + this.p0.y + ", " + this.p1.x + " " + this.p1.y + ")";
@@ -5845,20 +5980,20 @@
                         return fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && this.matrix[L.INTERIOR][L.EXTERIOR] === lt.FALSE && this.matrix[L.BOUNDARY][L.EXTERIOR] === lt.FALSE;
                     },
                     isTouches: function(t, e) {
-                        return t > e ? this.isTouches(e, t) : t === lt.A && e === lt.A || t === lt.L && e === lt.L || t === lt.L && e === lt.A || t === lt.P && e === lt.A || t === lt.P && e === lt.L ? this.matrix[L.INTERIOR][L.INTERIOR] === lt.FALSE && (fe.isTrue(this.matrix[L.INTERIOR][L.BOUNDARY]) || fe.isTrue(this.matrix[L.BOUNDARY][L.INTERIOR]) || fe.isTrue(this.matrix[L.BOUNDARY][L.BOUNDARY])) : !1;
+                        return t > e ? this.isTouches(e, t) : (t === lt.A && e === lt.A || t === lt.L && e === lt.L || t === lt.L && e === lt.A || t === lt.P && e === lt.A || t === lt.P && e === lt.L) && (this.matrix[L.INTERIOR][L.INTERIOR] === lt.FALSE && (fe.isTrue(this.matrix[L.INTERIOR][L.BOUNDARY]) || fe.isTrue(this.matrix[L.BOUNDARY][L.INTERIOR]) || fe.isTrue(this.matrix[L.BOUNDARY][L.BOUNDARY])));
                     },
                     isOverlaps: function(t, e) {
-                        return t === lt.P && e === lt.P || t === lt.A && e === lt.A ? fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && fe.isTrue(this.matrix[L.INTERIOR][L.EXTERIOR]) && fe.isTrue(this.matrix[L.EXTERIOR][L.INTERIOR]) : t === lt.L && e === lt.L ? 1 === this.matrix[L.INTERIOR][L.INTERIOR] && fe.isTrue(this.matrix[L.INTERIOR][L.EXTERIOR]) && fe.isTrue(this.matrix[L.EXTERIOR][L.INTERIOR]) : !1;
+                        return t === lt.P && e === lt.P || t === lt.A && e === lt.A ? fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && fe.isTrue(this.matrix[L.INTERIOR][L.EXTERIOR]) && fe.isTrue(this.matrix[L.EXTERIOR][L.INTERIOR]) : t === lt.L && e === lt.L && (1 === this.matrix[L.INTERIOR][L.INTERIOR] && fe.isTrue(this.matrix[L.INTERIOR][L.EXTERIOR]) && fe.isTrue(this.matrix[L.EXTERIOR][L.INTERIOR]));
                     },
                     isEquals: function(t, e) {
-                        return t !== e ? !1 : fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && this.matrix[L.INTERIOR][L.EXTERIOR] === lt.FALSE && this.matrix[L.BOUNDARY][L.EXTERIOR] === lt.FALSE && this.matrix[L.EXTERIOR][L.INTERIOR] === lt.FALSE && this.matrix[L.EXTERIOR][L.BOUNDARY] === lt.FALSE;
+                        return t === e && (fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && this.matrix[L.INTERIOR][L.EXTERIOR] === lt.FALSE && this.matrix[L.BOUNDARY][L.EXTERIOR] === lt.FALSE && this.matrix[L.EXTERIOR][L.INTERIOR] === lt.FALSE && this.matrix[L.EXTERIOR][L.BOUNDARY] === lt.FALSE);
                     },
                     toString: function() {
-                        for (var t = new P("123456789"), e = 0; 3 > e; e++) for (var n = 0; 3 > n; n++) t.setCharAt(3 * e + n, lt.toDimensionSymbol(this.matrix[e][n]));
+                        for (var t = new P("123456789"), e = 0; e < 3; e++) for (var n = 0; n < 3; n++) t.setCharAt(3 * e + n, lt.toDimensionSymbol(this.matrix[e][n]));
                         return t.toString();
                     },
                     setAll: function(t) {
-                        for (var e = 0; 3 > e; e++) for (var n = 0; 3 > n; n++) this.matrix[e][n] = t;
+                        for (var e = 0; e < 3; e++) for (var n = 0; n < 3; n++) this.matrix[e][n] = t;
                     },
                     get: function(t, e) {
                         return this.matrix[t][e];
@@ -5871,17 +6006,17 @@
                     },
                     matches: function(t) {
                         if (9 !== t.length) throw new i("Should be length 9: " + t);
-                        for (var e = 0; 3 > e; e++) for (var n = 0; 3 > n; n++) if (!fe.matches(this.matrix[e][n], t.charAt(3 * e + n))) return !1;
+                        for (var e = 0; e < 3; e++) for (var n = 0; n < 3; n++) if (!fe.matches(this.matrix[e][n], t.charAt(3 * e + n))) return !1;
                         return !0;
                     },
                     add: function(t) {
-                        for (var e = 0; 3 > e; e++) for (var n = 0; 3 > n; n++) this.setAtLeast(e, n, t.get(e, n));
+                        for (var e = 0; e < 3; e++) for (var n = 0; n < 3; n++) this.setAtLeast(e, n, t.get(e, n));
                     },
                     isDisjoint: function() {
                         return this.matrix[L.INTERIOR][L.INTERIOR] === lt.FALSE && this.matrix[L.INTERIOR][L.BOUNDARY] === lt.FALSE && this.matrix[L.BOUNDARY][L.INTERIOR] === lt.FALSE && this.matrix[L.BOUNDARY][L.BOUNDARY] === lt.FALSE;
                     },
                     isCrosses: function(t, e) {
-                        return t === lt.P && e === lt.L || t === lt.P && e === lt.A || t === lt.L && e === lt.A ? fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && fe.isTrue(this.matrix[L.INTERIOR][L.EXTERIOR]) : t === lt.L && e === lt.P || t === lt.A && e === lt.P || t === lt.A && e === lt.L ? fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && fe.isTrue(this.matrix[L.EXTERIOR][L.INTERIOR]) : t === lt.L && e === lt.L ? 0 === this.matrix[L.INTERIOR][L.INTERIOR] : !1;
+                        return t === lt.P && e === lt.L || t === lt.P && e === lt.A || t === lt.L && e === lt.A ? fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && fe.isTrue(this.matrix[L.INTERIOR][L.EXTERIOR]) : t === lt.L && e === lt.P || t === lt.A && e === lt.P || t === lt.A && e === lt.L ? fe.isTrue(this.matrix[L.INTERIOR][L.INTERIOR]) && fe.isTrue(this.matrix[L.EXTERIOR][L.INTERIOR]) : t === lt.L && e === lt.L && 0 === this.matrix[L.INTERIOR][L.INTERIOR];
                     },
                     interfaces_: function() {
                         return [ o ];
@@ -5892,7 +6027,7 @@
                 }), fe.matches = function() {
                     if (Number.isInteger(arguments[0]) && "string" == typeof arguments[1]) {
                         var t = arguments[0], e = arguments[1];
-                        return e === lt.SYM_DONTCARE ? !0 : e === lt.SYM_TRUE && (t >= 0 || t === lt.TRUE) ? !0 : e === lt.SYM_FALSE && t === lt.FALSE ? !0 : e === lt.SYM_P && t === lt.P ? !0 : e === lt.SYM_L && t === lt.L ? !0 : e === lt.SYM_A && t === lt.A;
+                        return e === lt.SYM_DONTCARE || (e === lt.SYM_TRUE && (t >= 0 || t === lt.TRUE) || (e === lt.SYM_FALSE && t === lt.FALSE || (e === lt.SYM_P && t === lt.P || (e === lt.SYM_L && t === lt.L || e === lt.SYM_A && t === lt.A))));
                     }
                     if ("string" == typeof arguments[0] && "string" == typeof arguments[1]) {
                         var n = arguments[0], i = arguments[1], r = new fe(n);
@@ -5917,7 +6052,8 @@
                     MultiLineString: gt,
                     MultiPolygon: Ot,
                     Dimension: lt,
-                    IntersectionMatrix: fe
+                    IntersectionMatrix: fe,
+                    PrecisionModel: ee
                 });
                 e(ge.prototype, {
                     addPoint: function(t) {
@@ -5995,7 +6131,7 @@
                 pe.prototype.add = function(t) {
                     return this.array_.push(t), !0;
                 }, pe.prototype.get = function(t) {
-                    if (0 > t || t >= this.size()) throw new IndexOutOfBoundsException();
+                    if (t < 0 || t >= this.size()) throw new IndexOutOfBoundsException();
                     return this.array_[t];
                 }, pe.prototype.push = function(t) {
                     return this.array_.push(t), t;
@@ -6014,7 +6150,7 @@
                 }, pe.prototype.size = function() {
                     return this.array_.length;
                 }, pe.prototype.toArray = function() {
-                    for (var t = [], e = 0, n = this.array_.length; n > e; e++) t.push(this.array_[e]);
+                    for (var t = [], e = 0, n = this.array_.length; e < n; e++) t.push(this.array_[e]);
                     return t;
                 }, e(ve.prototype, {
                     filter: function(t) {
@@ -6140,7 +6276,7 @@
                     if (a === he.COUNTERCLOCKWISE) return 1;
                     if (a === he.CLOCKWISE) return -1;
                     var u = i * i + r * r, l = s * s + o * o;
-                    return l > u ? -1 : u > l ? 1 : 0;
+                    return u < l ? -1 : u > l ? 1 : 0;
                 }, me.RadialComparator = ye, e(xe.prototype, {
                     transformPoint: function(t, e) {
                         return this.factory.createPoint(this.transformCoordinates(t.getCoordinateSequence(), t));
@@ -6214,7 +6350,7 @@
                         var n = this.transformCoordinates(t.getCoordinateSequence(), t);
                         if (null === n) return this.factory.createLinearRing(null);
                         var i = n.size();
-                        return i > 0 && 4 > i && !this.preserveType ? this.factory.createLineString(n) : this.factory.createLinearRing(n);
+                        return i > 0 && i < 4 && !this.preserveType ? this.factory.createLineString(n) : this.factory.createLinearRing(n);
                     },
                     interfaces_: function() {
                         return [];
@@ -6224,7 +6360,7 @@
                     }
                 }), e(Ee.prototype, {
                     snapVertices: function(t, e) {
-                        for (var n = this._isClosed ? t.size() - 1 : t.size(), i = 0; n > i; i++) {
+                        for (var n = this._isClosed ? t.size() - 1 : t.size(), i = 0; i < n; i++) {
                             var r = t.get(i), s = this.findSnapForVertex(r, e);
                             null !== s && (t.set(i, new g(s)), 0 === i && this._isClosed && t.set(t.size() - 1, new g(s)));
                         }
@@ -6246,7 +6382,7 @@
                         if (0 === e.length) return null;
                         var n = e.length;
                         e[0].equals2D(e[e.length - 1]) && (n = e.length - 1);
-                        for (var i = 0; n > i; i++) {
+                        for (var i = 0; i < n; i++) {
                             var r = e[i], s = this.findSegmentIndexToSnap(r, t);
                             s >= 0 && t.add(s + 1, new g(r), !1);
                         }
@@ -6258,7 +6394,7 @@
                                 return -1;
                             }
                             var o = this.seg.distance(t);
-                            o < this.snapTolerance && n > o && (n = o, i = s);
+                            o < this.snapTolerance && o < n && (n = o, i = s);
                         }
                         return i;
                     },
@@ -6272,14 +6408,14 @@
                         return Ee;
                     }
                 }), Ee.isClosed = function(t) {
-                    return t.length <= 1 ? !1 : t[0].equals2D(t[t.length - 1]);
+                    return !(t.length <= 1) && t[0].equals2D(t[t.length - 1]);
                 }, e(Ie.prototype, {
                     snapTo: function(t, e) {
                         var n = this.extractTargetCoordinates(t), i = new Ne(e, n);
                         return i.transform(this.srcGeom);
                     },
                     snapToSelf: function(t, e) {
-                        var n = this.extractTargetCoordinates(this.srcGeom), i = new Ne(t, n, (!0)), r = i.transform(this.srcGeom), s = r;
+                        var n = this.extractTargetCoordinates(this.srcGeom), i = new Ne(t, n, !0), r = i.transform(this.srcGeom), s = r;
                         return e && R(s, Rt) && (s = r.buffer(0)), s;
                     },
                     computeSnapTolerance: function(t) {
@@ -6293,7 +6429,7 @@
                     computeMinimumSegmentLength: function(t) {
                         for (var e = r.MAX_VALUE, n = 0; n < t.length - 1; n++) {
                             var i = t[n].distance(t[n + 1]);
-                            e > i && (e = i);
+                            i < e && (e = i);
                         }
                         return e;
                     },
@@ -6703,7 +6839,7 @@
                     sort: function(t, e) {
                         var n = t.toArray();
                         e ? ut.sort(n, e) : ut.sort(n);
-                        for (var i = t.iterator(), r = 0, s = n.length; s > r; r++) i.next(), i.set(n[r]);
+                        for (var i = t.iterator(), r = 0, s = n.length; r < s; r++) i.next(), i.set(n[r]);
                     },
                     singletonList: function(t) {
                         var e = new I();
@@ -6758,14 +6894,14 @@
                     lastNode: function(t) {
                         return t.get(t.size() - 1);
                     },
-                    size: function qo() {
+                    size: function t() {
                         if (0 === arguments.length) return this.isEmpty() ? 0 : (this.build(), this.size(this.root));
                         if (1 === arguments.length) {
-                            for (var t = arguments[0], qo = 0, e = t.getChildBoundables().iterator(); e.hasNext(); ) {
-                                var n = e.next();
-                                n instanceof Ge ? qo += this.size(n) : n instanceof Me && (qo += 1);
+                            for (var e = arguments[0], t = 0, n = e.getChildBoundables().iterator(); n.hasNext(); ) {
+                                var i = n.next();
+                                i instanceof Ge ? t += this.size(i) : i instanceof Me && (t += 1);
                             }
-                            return qo;
+                            return t;
                         }
                     },
                     removeItem: function(t, e) {
@@ -6773,7 +6909,7 @@
                             var r = i.next();
                             r instanceof Me && r.getItem() === e && (n = r);
                         }
-                        return null !== n ? (t.getChildBoundables().remove(n), !0) : !1;
+                        return null !== n && (t.getChildBoundables().remove(n), !0);
                     },
                     itemsTree: function() {
                         if (0 === arguments.length) {
@@ -6807,7 +6943,7 @@
                             for (var s = i.getChildBoundables().iterator(); s.hasNext(); ) {
                                 var o = s.next();
                                 o instanceof Ge ? this.boundablesAtLevel(n, o, r) : (f.isTrue(o instanceof Me), 
-                                -1 === n && r.add(o));
+                                n === -1 && r.add(o));
                             }
                             return null;
                         }
@@ -6842,7 +6978,7 @@
                     remove: function() {
                         if (2 === arguments.length) {
                             var t = arguments[0], e = arguments[1];
-                            return this.build(), this.getIntersectsOp().intersects(this.root.getBounds(), t) ? this.remove(t, this.root, e) : !1;
+                            return this.build(), !!this.getIntersectsOp().intersects(this.root.getBounds(), t) && this.remove(t, this.root, e);
                         }
                         if (3 === arguments.length) {
                             var n = arguments[0], i = arguments[1], r = arguments[2], s = this.removeItem(i, r);
@@ -6899,7 +7035,7 @@
                         return Be;
                     }
                 }), Be.compareDoubles = function(t, e) {
-                    return t > e ? 1 : e > t ? -1 : 0;
+                    return t > e ? 1 : t < e ? -1 : 0;
                 }, Be.IntersectsOp = ze, Be.serialVersionUID = -0x35ef64c82d4c5400, Be.DEFAULT_NODE_CAPACITY = 10, 
                 e(Ve.prototype, {
                     distance: function(t, e) {},
@@ -6930,9 +7066,9 @@
                         return ke.intersectsOp;
                     },
                     verticalSlices: function(t, e) {
-                        for (var n = Math.trunc(Math.ceil(t.size() / e)), i = new Array(e).fill(null), r = t.iterator(), s = 0; e > s; s++) {
+                        for (var n = Math.trunc(Math.ceil(t.size() / e)), i = new Array(e).fill(null), r = t.iterator(), s = 0; s < e; s++) {
                             i[s] = new I();
-                            for (var o = 0; r.hasNext() && n > o; ) {
+                            for (var o = 0; r.hasNext() && o < n; ) {
                                 var a = r.next();
                                 i[s].add(a), o++;
                             }
@@ -7062,7 +7198,7 @@
                         return Ue;
                     }
                 }), Ue.relativeSign = function(t, e) {
-                    return e > t ? -1 : t > e ? 1 : 0;
+                    return t < e ? -1 : t > e ? 1 : 0;
                 }, Ue.compare = function(t, e, n) {
                     if (e.equals2D(n)) return 0;
                     var i = Ue.relativeSign(e.x, n.x), r = Ue.relativeSign(e.y, n.y);
@@ -7093,7 +7229,7 @@
                     }
                     return f.shouldNeverReachHere("invalid octant value"), 0;
                 }, Ue.compareValue = function(t, e) {
-                    return 0 > t ? -1 : t > 0 ? 1 : 0 > e ? -1 : e > 0 ? 1 : 0;
+                    return t < 0 ? -1 : t > 0 ? 1 : e < 0 ? -1 : e > 0 ? 1 : 0;
                 }, e(Xe.prototype, {
                     getCoordinate: function() {
                         return this.coord;
@@ -7106,7 +7242,7 @@
                         return this.segmentIndex < e.segmentIndex ? -1 : this.segmentIndex > e.segmentIndex ? 1 : this.coord.equals2D(e.coord) ? 0 : Ue.compare(this.segmentOctant, this.coord, e.coord);
                     },
                     isEndPoint: function(t) {
-                        return 0 !== this.segmentIndex || this._isInterior ? this.segmentIndex === t : !0;
+                        return 0 === this.segmentIndex && !this._isInterior || this.segmentIndex === t;
                     },
                     isInterior: function() {
                         return this._isInterior;
@@ -7168,7 +7304,7 @@
                     findCollapseIndex: function(t, e, n) {
                         if (!t.coord.equals2D(e.coord)) return !1;
                         var i = e.segmentIndex - t.segmentIndex;
-                        return e.isInterior() || i--, 1 === i ? (n[0] = t.segmentIndex + 1, !0) : !1;
+                        return e.isInterior() || i--, 1 === i && (n[0] = t.segmentIndex + 1, !0);
                     },
                     findCollapsesFromInsertedNodes: function(t) {
                         for (var e = new Array(1).fill(null), n = this.iterator(), i = n.next(); n.hasNext(); ) {
@@ -7329,7 +7465,7 @@
                         if (i.tempEnv1.init(r, s), n - e === 1) return i.select(this, e), null;
                         if (!t.intersects(i.tempEnv1)) return null;
                         var o = Math.trunc((e + n) / 2);
-                        o > e && this.computeSelect(t, e, o, i), n > o && this.computeSelect(t, o, n, i);
+                        e < o && this.computeSelect(t, e, o, i), o < n && this.computeSelect(t, o, n, i);
                     },
                     getCoordinates: function() {
                         for (var t = new Array(this.end - this.start + 1).fill(null), e = 0, n = this.start; n <= this.end; n++) t[e++] = this.pts[n];
@@ -7368,8 +7504,8 @@
                         if (e - t === 1 && r - i === 1) return s.overlap(this, t, n, i), null;
                         if (s.tempEnv1.init(o, a), s.tempEnv2.init(u, l), !s.tempEnv1.intersects(s.tempEnv2)) return null;
                         var h = Math.trunc((t + e) / 2), c = Math.trunc((i + r) / 2);
-                        h > t && (c > i && this.computeOverlapsInternal(t, h, n, i, c, s), r > c && this.computeOverlapsInternal(t, h, n, c, r, s)), 
-                        e > h && (c > i && this.computeOverlapsInternal(h, e, n, i, c, s), r > c && this.computeOverlapsInternal(h, e, n, c, r, s));
+                        t < h && (i < c && this.computeOverlapsInternal(t, h, n, i, c, s), c < r && this.computeOverlapsInternal(t, h, n, c, r, s)), 
+                        h < e && (i < c && this.computeOverlapsInternal(h, e, n, i, c, s), c < r && this.computeOverlapsInternal(h, e, n, c, r, s));
                     },
                     interfaces_: function() {
                         return [];
@@ -7394,7 +7530,7 @@
                     if (t === e) return t;
                     var n = (t - e + 4) % 4;
                     if (2 === n) return -1;
-                    var i = e > t ? t : e, r = t > e ? t : e;
+                    var i = t < e ? t : e, r = t > e ? t : e;
                     return 0 === i && 3 === r ? 3 : i;
                 }, Je.isInHalfPlane = function(t, e) {
                     return e === Je.SE ? t === Je.SE || t === Je.SW : t === e || t === e + 1;
@@ -7572,13 +7708,13 @@
                         this.intersectionCount++);
                     },
                     isEndSegment: function(t, e) {
-                        return 0 === e ? !0 : e >= t.size() - 2;
+                        return 0 === e || e >= t.size() - 2;
                     },
                     hasIntersection: function() {
                         return null !== this.interiorIntersection;
                     },
                     isDone: function() {
-                        return this.findAllIntersections ? !1 : null !== this.interiorIntersection;
+                        return !this.findAllIntersections && null !== this.interiorIntersection;
                     },
                     interfaces_: function() {
                         return [ on ];
@@ -7610,8 +7746,8 @@
                     checkInteriorIntersections: function() {
                         this._isValid = !0, this.segInt = new an(this.li), this.segInt.setFindAllIntersections(this.findAllIntersections);
                         var t = new nn();
-                        return t.setSegmentIntersector(this.segInt), t.computeNodes(this.segStrings), this.segInt.hasIntersection() ? (this._isValid = !1, 
-                        null) : void 0;
+                        if (t.setSegmentIntersector(this.segInt), t.computeNodes(this.segStrings), this.segInt.hasIntersection()) return this._isValid = !1, 
+                        null;
                     },
                     checkValid: function() {
                         if (this.execute(), !this._isValid) throw new sn(this.getErrorMessage(), this.segInt.getInteriorIntersection());
@@ -7772,7 +7908,7 @@
                         return this.elt[t].isLine();
                     },
                     merge: function(t) {
-                        for (var e = 0; 2 > e; e++) null === this.elt[e] && null !== t.elt[e] ? this.elt[e] = new fn(t.elt[e]) : this.elt[e].merge(t.elt[e]);
+                        for (var e = 0; e < 2; e++) null === this.elt[e] && null !== t.elt[e] ? this.elt[e] = new fn(t.elt[e]) : this.elt[e].merge(t.elt[e]);
                     },
                     flip: function() {
                         this.elt[0].flip(), this.elt[1].flip();
@@ -7827,7 +7963,7 @@
                         return gn;
                     }
                 }), gn.toLineLabel = function(t) {
-                    for (var e = new gn(L.NONE), n = 0; 2 > n; n++) e.setLocation(n, t.getLocation(n));
+                    for (var e = new gn(L.NONE), n = 0; n < 2; n++) e.setLocation(n, t.getLocation(n));
                     return e;
                 }, e(dn.prototype, {
                     computeRing: function() {
@@ -7882,7 +8018,9 @@
                     },
                     setInResult: function() {
                         var t = this.startDe;
-                        do t.getEdge().setInResult(!0), t = t.getNext(); while (t !== this.startDe);
+                        do {
+                            t.getEdge().setInResult(!0), t = t.getNext();
+                        } while (t !== this.startDe);
                     },
                     containsPoint: function(t) {
                         var e = this.getLinearRing(), n = e.getEnvelopeInternal();
@@ -8055,7 +8193,7 @@
                         if (arguments[0] instanceof yn) {
                             var t = arguments[0];
                             this.mergeLabel(t.label);
-                        } else if (arguments[0] instanceof gn) for (var e = arguments[0], n = 0; 2 > n; n++) {
+                        } else if (arguments[0] instanceof gn) for (var e = arguments[0], n = 0; n < 2; n++) {
                             var i = this.computeMergedLocation(e, n), r = this.label.getLocation(n);
                             r === L.NONE && this.label.setLocation(n, i);
                         }
@@ -8204,12 +8342,12 @@
                         return this.next;
                     },
                     setDepth: function(t, e) {
-                        if (-999 !== this.depth[t] && this.depth[t] !== e) throw new sn("assigned depths do not match", this.getCoordinate());
+                        if (this.depth[t] !== -999 && this.depth[t] !== e) throw new sn("assigned depths do not match", this.getCoordinate());
                         this.depth[t] = e;
                     },
-                    isInteriorAreaEdge: function Bo() {
-                        for (var Bo = !0, t = 0; 2 > t; t++) this.label.isArea(t) && this.label.getLocation(t, cn.LEFT) === L.INTERIOR && this.label.getLocation(t, cn.RIGHT) === L.INTERIOR || (Bo = !1);
-                        return Bo;
+                    isInteriorAreaEdge: function t() {
+                        for (var t = !0, e = 0; e < 2; e++) this.label.isArea(e) && this.label.getLocation(e, cn.LEFT) === L.INTERIOR && this.label.getLocation(e, cn.RIGHT) === L.INTERIOR || (t = !1);
+                        return t;
                     },
                     setNextMin: function(t) {
                         this.nextMin = t;
@@ -8341,7 +8479,7 @@
                         }
                     },
                     matchInSameDirection: function(t, e, n, i) {
-                        return t.equals(n) ? he.computeOrientation(t, e, i) === he.COLLINEAR && Je.quadrant(t, e) === Je.quadrant(n, i) : !1;
+                        return !!t.equals(n) && (he.computeOrientation(t, e, i) === he.COLLINEAR && Je.quadrant(t, e) === Je.quadrant(n, i));
                     },
                     getEdgeEnds: function() {
                         return this.edgeEndList;
@@ -8374,7 +8512,7 @@
                         for (var e = t.iterator(); e.hasNext(); ) {
                             var n = e.next();
                             this.edges.add(n);
-                            var i = new In(n, (!0)), r = new In(n, (!1));
+                            var i = new In(n, !0), r = new In(n, !1);
                             i.setSym(r), r.setSym(i), this.add(i), this.add(r);
                         }
                     },
@@ -8478,7 +8616,7 @@
                             var r = i.next();
                             r.isHole() || (n = r, e++);
                         }
-                        return f.isTrue(1 >= e, "found two shells in MinimalEdgeRing list"), n;
+                        return f.isTrue(e <= 1, "found two shells in MinimalEdgeRing list"), n;
                     },
                     add: function() {
                         if (1 === arguments.length) {
@@ -8597,7 +8735,7 @@
                         return Tn;
                     }
                 }), Tn.isPointInRing = function(t, e) {
-                    return e.getEnvelopeInternal().intersects(t) ? he.isPointInRing(t, e.getCoordinates()) : !1;
+                    return !!e.getEnvelopeInternal().intersects(t) && he.isPointInRing(t, e.getCoordinates());
                 }, Tn.containsPointInPolygon = function(t, e) {
                     if (e.isEmpty()) return !1;
                     var n = e.getExteriorRing();
@@ -8709,8 +8847,8 @@
                     computeLabelling: function(t) {
                         this.computeEdgeEndLabels(t[0].getBoundaryNodeRule()), this.propagateSideLabels(0), 
                         this.propagateSideLabels(1);
-                        for (var e = [ !1, !1 ], n = this.iterator(); n.hasNext(); ) for (var i = n.next(), r = i.getLabel(), s = 0; 2 > s; s++) r.isLine(s) && r.getLocation(s) === L.BOUNDARY && (e[s] = !0);
-                        for (var n = this.iterator(); n.hasNext(); ) for (var i = n.next(), r = i.getLabel(), s = 0; 2 > s; s++) if (r.isAnyNull(s)) {
+                        for (var e = [ !1, !1 ], n = this.iterator(); n.hasNext(); ) for (var i = n.next(), r = i.getLabel(), s = 0; s < 2; s++) r.isLine(s) && r.getLocation(s) === L.BOUNDARY && (e[s] = !0);
+                        for (var n = this.iterator(); n.hasNext(); ) for (var i = n.next(), r = i.getLabel(), s = 0; s < 2; s++) if (r.isAnyNull(s)) {
                             var o = L.NONE;
                             if (e[s]) o = L.EXTERIOR; else {
                                 var a = i.getCoordinate();
@@ -8758,7 +8896,7 @@
                     },
                     getRightmostEdge: function() {
                         var t = this.getEdges(), e = t.size();
-                        if (1 > e) return null;
+                        if (e < 1) return null;
                         var n = t.get(0);
                         if (1 === e) return n;
                         var i = t.get(e - 1), r = n.getQuadrant(), s = i.getQuadrant();
@@ -8802,7 +8940,7 @@
                             var t = arguments[0], e = this.findIndex(t), n = (t.getLabel(), t.getDepth(cn.LEFT)), i = t.getDepth(cn.RIGHT), r = this.computeDepths(e + 1, this.edgeList.size(), n), s = this.computeDepths(0, e, r);
                             if (s !== i) throw new sn("depth mismatch at " + t.getCoordinate());
                         } else if (3 === arguments.length) {
-                            for (var o = arguments[0], a = arguments[1], u = arguments[2], l = u, h = o; a > h; h++) {
+                            for (var o = arguments[0], a = arguments[1], u = arguments[2], l = u, h = o; h < a; h++) {
                                 var c = this.edgeList.get(h);
                                 c.getLabel();
                                 c.setEdgeDepths(cn.RIGHT, l), l = c.getDepth(cn.LEFT);
@@ -8875,7 +9013,7 @@
                     },
                     computeLabelling: function(t) {
                         Pn.prototype.computeLabelling.call(this, t), this.label = new gn(L.NONE);
-                        for (var e = this.iterator(); e.hasNext(); ) for (var n = e.next(), i = n.getEdge(), r = i.getLabel(), s = 0; 2 > s; s++) {
+                        for (var e = this.iterator(); e.hasNext(); ) for (var n = e.next(), i = n.getEdge(), r = i.getLabel(), s = 0; s < 2; s++) {
                             var o = r.getLocation(s);
                             o !== L.INTERIOR && o !== L.BOUNDARY || this.label.setLocation(s, L.INTERIOR);
                         }
@@ -8927,7 +9065,7 @@
                         return this.eventType === Mn.INSERT;
                     },
                     isSameLabel: function(t) {
-                        return null === this.label ? !1 : this.label === t.label;
+                        return null !== this.label && this.label === t.label;
                     },
                     getDeleteEventIndex: function() {
                         return this.deleteEventIndex;
@@ -8982,7 +9120,7 @@
                         return this._isDone;
                     },
                     isBoundaryPoint: function(t, e) {
-                        return null === e ? !1 : this.isBoundaryPointInternal(t, e[0]) ? !0 : !!this.isBoundaryPointInternal(t, e[1]);
+                        return null !== e && (!!this.isBoundaryPointInternal(t, e[0]) || !!this.isBoundaryPointInternal(t, e[1]));
                     },
                     setBoundaryNodes: function(t, e) {
                         this.bdyNodes = new Array(2).fill(null), this.bdyNodes[0] = t, this.bdyNodes[1] = e;
@@ -9036,7 +9174,7 @@
                         }
                     },
                     processOverlaps: function(t, e, n, i) {
-                        for (var r = n.getObject(), s = t; e > s; s++) {
+                        for (var r = n.getObject(), s = t; s < e; s++) {
                             var o = this.events.get(s);
                             if (o.isInsert()) {
                                 var a = o.getObject();
@@ -9081,7 +9219,7 @@
                 }), e(qn.prototype, {
                     compare: function(t, e) {
                         var n = t, i = e, r = (n.min + n.max) / 2, s = (i.min + i.max) / 2;
-                        return s > r ? -1 : r > s ? 1 : 0;
+                        return r < s ? -1 : r > s ? 1 : 0;
                     },
                     interfaces_: function() {
                         return [ a ];
@@ -9292,7 +9430,7 @@
                         return this.compare(e.segmentIndex, e.dist);
                     },
                     isEndPoint: function(t) {
-                        return 0 === this.segmentIndex && 0 === this.dist ? !0 : this.segmentIndex === t;
+                        return 0 === this.segmentIndex && 0 === this.dist || this.segmentIndex === t;
                     },
                     toString: function() {
                         return this.coord + " seg # = " + this.segmentIndex + " dist = " + this.dist;
@@ -9394,7 +9532,7 @@
                     },
                     getMinX: function(t) {
                         var e = this.pts[this.startIndex[t]].x, n = this.pts[this.startIndex[t + 1]].x;
-                        return n > e ? e : n;
+                        return e < n ? e : n;
                     },
                     computeIntersectsForChain: function() {
                         if (4 === arguments.length) {
@@ -9405,8 +9543,8 @@
                             if (s - r === 1 && u - a === 1) return l.addIntersections(this.e, r, o.e, a), null;
                             if (this.env1.init(h, c), this.env2.init(f, g), !this.env1.intersects(this.env2)) return null;
                             var d = Math.trunc((r + s) / 2), p = Math.trunc((a + u) / 2);
-                            d > r && (p > a && this.computeIntersectsForChain(r, d, o, a, p, l), u > p && this.computeIntersectsForChain(r, d, o, p, u, l)), 
-                            s > d && (p > a && this.computeIntersectsForChain(d, s, o, a, p, l), u > p && this.computeIntersectsForChain(d, s, o, p, u, l));
+                            r < d && (a < p && this.computeIntersectsForChain(r, d, o, a, p, l), p < u && this.computeIntersectsForChain(r, d, o, p, u, l)), 
+                            d < s && (a < p && this.computeIntersectsForChain(d, s, o, a, p, l), p < u && this.computeIntersectsForChain(d, s, o, p, u, l));
                         }
                     },
                     getStartIndexes: function() {
@@ -9430,7 +9568,7 @@
                     },
                     isNull: function() {
                         if (0 === arguments.length) {
-                            for (var t = 0; 2 > t; t++) for (var e = 0; 3 > e; e++) if (this.depth[t][e] !== Qn.NULL_VALUE) return !1;
+                            for (var t = 0; t < 2; t++) for (var e = 0; e < 3; e++) if (this.depth[t][e] !== Qn.NULL_VALUE) return !1;
                             return !0;
                         }
                         if (1 === arguments.length) {
@@ -9443,10 +9581,10 @@
                         }
                     },
                     normalize: function() {
-                        for (var t = 0; 2 > t; t++) if (!this.isNull(t)) {
+                        for (var t = 0; t < 2; t++) if (!this.isNull(t)) {
                             var e = this.depth[t][1];
-                            this.depth[t][2] < e && (e = this.depth[t][2]), 0 > e && (e = 0);
-                            for (var n = 1; 3 > n; n++) {
+                            this.depth[t][2] < e && (e = this.depth[t][2]), e < 0 && (e = 0);
+                            for (var n = 1; n < 3; n++) {
                                 var i = 0;
                                 this.depth[t][n] > e && (i = 1), this.depth[t][n] = i;
                             }
@@ -9462,7 +9600,7 @@
                         return "A: " + this.depth[0][1] + "," + this.depth[0][2] + " B: " + this.depth[1][1] + "," + this.depth[1][2];
                     },
                     add: function() {
-                        if (1 === arguments.length) for (var t = arguments[0], e = 0; 2 > e; e++) for (var n = 1; 3 > n; n++) {
+                        if (1 === arguments.length) for (var t = arguments[0], e = 0; e < 2; e++) for (var n = 1; n < 3; n++) {
                             var i = t.getLocation(e, n);
                             i !== L.EXTERIOR && i !== L.INTERIOR || (this.isNull(e, n) ? this.depth[e][n] = Qn.depthAtLocation(i) : this.depth[e][n] += Qn.depthAtLocation(i));
                         } else if (3 === arguments.length) {
@@ -9524,7 +9662,7 @@
                         Jn.updateIM(this.label, t);
                     },
                     isCollapsed: function() {
-                        return this.label.isArea() ? 3 !== this.pts.length ? !1 : !!this.pts[0].equals(this.pts[2]) : !1;
+                        return !!this.label.isArea() && (3 === this.pts.length && !!this.pts[0].equals(this.pts[2]));
                     },
                     isClosed: function() {
                         return this.pts[0].equals(this.pts[this.pts.length - 1]);
@@ -9605,7 +9743,7 @@
                             return this.computeSelfNodes(t, e, !1);
                         }
                         if (3 === arguments.length) {
-                            var n = arguments[0], i = arguments[1], r = arguments[2], s = new An(n, (!0), (!1));
+                            var n = arguments[0], i = arguments[1], r = arguments[2], s = new An(n, !0, !1);
                             s.setIsDoneIfProperInt(r);
                             var o = this.createEdgeSetIntersector(), a = this.parentGeom instanceof bt || this.parentGeom instanceof Tt || this.parentGeom instanceof Ot, u = i || !a;
                             return o.computeIntersections(this.edges, s, u), this.addSelfIntersectionNodes(this.argIndex), 
@@ -9619,7 +9757,7 @@
                         }
                     },
                     computeEdgeIntersections: function(t, e, n) {
-                        var i = new An(e, n, (!0));
+                        var i = new An(e, n, !0);
                         i.setBoundaryNodes(this.getBoundaryNodes(), t.getBoundaryNodes());
                         var r = this.createEdgeSetIntersector();
                         return r.computeIntersections(this.edges, t.edges, i), i;
@@ -9833,7 +9971,7 @@
                         }
                     },
                     isCoveredByLA: function(t) {
-                        return this.isCovered(t, this.resultLineList) ? !0 : !!this.isCovered(t, this.resultPolyList);
+                        return !!this.isCovered(t, this.resultLineList) || !!this.isCovered(t, this.resultPolyList);
                     },
                     computeGeometry: function(t, e, n, i) {
                         var r = new I();
@@ -9911,7 +10049,7 @@
                             var e = t.next(), n = e.getLabel(), i = e.getDepth();
                             if (!i.isNull()) {
                                 i.normalize();
-                                for (var r = 0; 2 > r; r++) n.isNull(r) || !n.isArea() || i.isNull(r) || (0 === i.getDelta(r) ? n.toLine(r) : (f.isTrue(!i.isNull(r, cn.LEFT), "depth of LEFT side has not been initialized"), 
+                                for (var r = 0; r < 2; r++) n.isNull(r) || !n.isArea() || i.isNull(r) || (0 === i.getDelta(r) ? n.toLine(r) : (f.isTrue(!i.isNull(r, cn.LEFT), "depth of LEFT side has not been initialized"), 
                                 n.setLocation(r, cn.LEFT, i.getLocation(r, cn.LEFT)), f.isTrue(!i.isNull(r, cn.RIGHT), "depth of RIGHT side has not been initialized"), 
                                 n.setLocation(r, cn.RIGHT, i.getLocation(r, cn.RIGHT))));
                             }
@@ -10080,14 +10218,14 @@
                             e = ii.overlayOp(this.geom[0], this.geom[1], t);
                             var r = !0;
                             r && (n = !0);
-                        } catch (s) {
-                            if (!(s instanceof l)) throw s;
-                            i = s;
+                        } catch (t) {
+                            if (!(t instanceof l)) throw t;
+                            i = t;
                         } finally {}
                         if (!n) try {
                             e = ri.overlayOp(this.geom[0], this.geom[1], t);
-                        } catch (s) {
-                            throw s instanceof l ? i : s;
+                        } catch (t) {
+                            throw t instanceof l ? i : t;
                         } finally {}
                         return e;
                     },
@@ -10121,16 +10259,16 @@
                     getInteriorPoint: function() {
                         return this.interiorPoint;
                     },
-                    widestGeometry: function zo() {
+                    widestGeometry: function t() {
                         if (arguments[0] instanceof ft) {
-                            var t = arguments[0];
-                            if (t.isEmpty()) return t;
-                            for (var zo = t.getGeometryN(0), e = 1; e < t.getNumGeometries(); e++) t.getGeometryN(e).getEnvelopeInternal().getWidth() > zo.getEnvelopeInternal().getWidth() && (zo = t.getGeometryN(e));
-                            return zo;
+                            var e = arguments[0];
+                            if (e.isEmpty()) return e;
+                            for (var t = e.getGeometryN(0), n = 1; n < e.getNumGeometries(); n++) e.getGeometryN(n).getEnvelopeInternal().getWidth() > t.getEnvelopeInternal().getWidth() && (t = e.getGeometryN(n));
+                            return t;
                         }
                         if (arguments[0] instanceof B) {
-                            var n = arguments[0];
-                            return n instanceof ft ? this.widestGeometry(n) : n;
+                            var i = arguments[0];
+                            return i instanceof ft ? this.widestGeometry(i) : i;
                         }
                     },
                     horizontalBisector: function(t) {
@@ -10240,7 +10378,7 @@
                     }
                 }), e(ci.prototype, {
                     hasChildren: function() {
-                        for (var t = 0; 2 > t; t++) if (null !== this.subnode[t]) return !0;
+                        for (var t = 0; t < 2; t++) if (null !== this.subnode[t]) return !0;
                         return !1;
                     },
                     isPrunable: function() {
@@ -10248,11 +10386,11 @@
                     },
                     addAllItems: function(t) {
                         t.addAll(this.items);
-                        for (var e = 0; 2 > e; e++) null !== this.subnode[e] && this.subnode[e].addAllItems(t);
+                        for (var e = 0; e < 2; e++) null !== this.subnode[e] && this.subnode[e].addAllItems(t);
                         return t;
                     },
                     size: function() {
-                        for (var t = 0, e = 0; 2 > e; e++) null !== this.subnode[e] && (t += this.subnode[e].size());
+                        for (var t = 0, e = 0; e < 2; e++) null !== this.subnode[e] && (t += this.subnode[e].size());
                         return t + this.items.size();
                     },
                     addAllItemsFromOverlapping: function(t, e) {
@@ -10264,7 +10402,7 @@
                     },
                     remove: function(t, e) {
                         if (!this.isSearchMatch(t)) return !1;
-                        for (var n = !1, i = 0; 2 > i; i++) if (null !== this.subnode[i] && (n = this.subnode[i].remove(t, e))) {
+                        for (var n = !1, i = 0; i < 2; i++) if (null !== this.subnode[i] && (n = this.subnode[i].remove(t, e))) {
                             this.subnode[i].isPrunable() && (this.subnode[i] = null);
                             break;
                         }
@@ -10274,14 +10412,14 @@
                         return this.items;
                     },
                     depth: function() {
-                        for (var t = 0, e = 0; 2 > e; e++) if (null !== this.subnode[e]) {
+                        for (var t = 0, e = 0; e < 2; e++) if (null !== this.subnode[e]) {
                             var n = this.subnode[e].depth();
                             n > t && (t = n);
                         }
                         return t + 1;
                     },
                     nodeSize: function() {
-                        for (var t = 0, e = 0; 2 > e; e++) null !== this.subnode[e] && (t += this.subnode[e].nodeSize());
+                        for (var t = 0, e = 0; e < 2; e++) null !== this.subnode[e] && (t += this.subnode[e].nodeSize());
                         return t + 1;
                     },
                     add: function(t) {
@@ -10383,7 +10521,7 @@
                     },
                     find: function(t) {
                         var e = ci.getSubnodeIndex(t, this.centre);
-                        if (-1 === e) return this;
+                        if (e === -1) return this;
                         if (null !== this.subnode[e]) {
                             var n = this.subnode[e];
                             return n.find(t);
@@ -10406,7 +10544,7 @@
                     },
                     getNode: function(t) {
                         var e = ci.getSubnodeIndex(t, this.centre);
-                        if (-1 !== e) {
+                        if (e !== -1) {
                             var n = this.getSubnode(e);
                             return n.getNode(t);
                         }
@@ -10446,15 +10584,17 @@
                     getClass: function() {
                         return mi;
                     }
-                }), mi.isZeroWidth = function(t, e) {
+                });
+                mi.isZeroWidth = function(t, e) {
                     var n = e - t;
                     if (0 === n) return !0;
                     var i = Math.max(Math.abs(t), Math.abs(e)), r = n / i, s = gi.exponent(r);
                     return s <= mi.MIN_BINARY_EXPONENT;
-                }, mi.MIN_BINARY_EXPONENT = -50, h(yi, ci), e(yi.prototype, {
+                };
+                mi.MIN_BINARY_EXPONENT = -50, h(yi, ci), e(yi.prototype, {
                     insert: function(t, e) {
                         var n = ci.getSubnodeIndex(t, yi.origin);
-                        if (-1 === n) return this.add(e), null;
+                        if (n === -1) return this.add(e), null;
                         var i = this.subnode[n];
                         if (null === i || !i.getInterval().contains(t)) {
                             var r = vi.createExpanded(i, t);
@@ -10538,8 +10678,8 @@
                 }), e(Ii.prototype, {
                     testLineSegment: function(t, e) {
                         var n = null, i = null, r = null, s = null, o = null, a = e.p0, u = e.p1;
-                        i = a.x - t.x, r = a.y - t.y, s = u.x - t.x, o = u.y - t.y, (r > 0 && 0 >= o || o > 0 && 0 >= r) && (n = ue.signOfDet2x2(i, r, s, o) / (o - r), 
-                        n > 0 && this.crossings++);
+                        i = a.x - t.x, r = a.y - t.y, s = u.x - t.x, o = u.y - t.y, (r > 0 && o <= 0 || o > 0 && r <= 0) && (n = ue.signOfDet2x2(i, r, s, o) / (o - r), 
+                        0 < n && this.crossings++);
                     },
                     buildIndex: function() {
                         this.tree = new xi();
@@ -10606,17 +10746,17 @@
                     return a > 0;
                 }, Ci.isObtuse = function(t, e, n) {
                     var i = t.x - e.x, r = t.y - e.y, s = n.x - e.x, o = n.y - e.y, a = i * s + r * o;
-                    return 0 > a;
+                    return a < 0;
                 }, Ci.interiorAngle = function(t, e, n) {
                     var i = Ci.angle(e, t), r = Ci.angle(e, n);
                     return Math.abs(r - i);
                 }, Ci.normalizePositive = function(t) {
-                    if (0 > t) {
-                        for (;0 > t; ) t += Ci.PI_TIMES_2;
+                    if (t < 0) {
+                        for (;t < 0; ) t += Ci.PI_TIMES_2;
                         t >= Ci.PI_TIMES_2 && (t = 0);
                     } else {
                         for (;t >= Ci.PI_TIMES_2; ) t -= Ci.PI_TIMES_2;
-                        0 > t && (t = 0);
+                        t < 0 && (t = 0);
                     }
                     return t;
                 }, Ci.angleBetween = function(t, e, n) {
@@ -10624,12 +10764,12 @@
                     return Ci.diff(i, r);
                 }, Ci.diff = function(t, e) {
                     var n = null;
-                    return n = e > t ? e - t : t - e, n > Math.PI && (n = 2 * Math.PI - n), n;
+                    return n = t < e ? e - t : t - e, n > Math.PI && (n = 2 * Math.PI - n), n;
                 }, Ci.toRadians = function(t) {
                     return t * Math.PI / 180;
                 }, Ci.getTurn = function(t, e) {
                     var n = Math.sin(e - t);
-                    return n > 0 ? Ci.COUNTERCLOCKWISE : 0 > n ? Ci.CLOCKWISE : Ci.NONE;
+                    return n > 0 ? Ci.COUNTERCLOCKWISE : n < 0 ? Ci.CLOCKWISE : Ci.NONE;
                 }, Ci.angleBetweenOriented = function(t, e, n) {
                     var i = Ci.angle(e, t), r = Ci.angle(e, n), s = r - i;
                     return s <= -Math.PI ? s + Ci.PI_TIMES_2 : s > Math.PI ? s - Ci.PI_TIMES_2 : s;
@@ -10683,7 +10823,7 @@
                     var i = t.distance(e), r = e.distance(n), s = n.distance(t), o = i;
                     return r > o && (o = r), s > o && (o = s), o;
                 }, Si.isAcute = function(t, e, n) {
-                    return Ci.isAcute(t, e, n) && Ci.isAcute(e, n, t) ? !!Ci.isAcute(n, t, e) : !1;
+                    return !!Ci.isAcute(t, e, n) && (!!Ci.isAcute(e, n, t) && !!Ci.isAcute(n, t, e));
                 }, Si.circumcentre = function(t, e, n) {
                     var i = n.x, r = n.y, s = t.x - i, o = t.y - r, a = e.x - i, u = e.y - r, l = 2 * Si.det(s, o, a, u), h = Si.det(o, s * s + o * o, u, a * a + u * u), c = Si.det(s, s * s + o * o, a, a * a + u * u), f = i - h / l, d = r + c / l;
                     return new g(f, d);
@@ -10792,9 +10932,9 @@
                         var o = t[s];
                         if (o !== e) {
                             var a = o.x - e.x, u = o.y - e.y;
-                            0 > u && (u = -u);
+                            u < 0 && (u = -u);
                             var l = Math.sqrt(a * a + u * u), h = u / l;
-                            n > h && (n = h, i = o);
+                            h < n && (n = h, i = o);
                         }
                     }
                     return i;
@@ -10806,7 +10946,7 @@
                         var a = t[o];
                         if (a !== e && a !== n) {
                             var u = Ci.angleBetween(e, a, n);
-                            i > u && (i = u, s = a);
+                            u < i && (i = u, s = a);
                         }
                     }
                     return s;
@@ -10855,9 +10995,9 @@
                         if (this.computeMinimumDiameter(), 0 === this.minWidth) return this.minBaseSeg.p0.equals2D(this.minBaseSeg.p1) ? this.inputGeom.getFactory().createPoint(this.minBaseSeg.p0) : this.minBaseSeg.toGeometry(this.inputGeom.getFactory());
                         for (var t = this.minBaseSeg.p1.x - this.minBaseSeg.p0.x, e = this.minBaseSeg.p1.y - this.minBaseSeg.p0.y, n = r.MAX_VALUE, i = -r.MAX_VALUE, s = r.MAX_VALUE, o = -r.MAX_VALUE, a = 0; a < this.convexHullPts.length; a++) {
                             var u = Li.computeC(t, e, this.convexHullPts[a]);
-                            u > i && (i = u), n > u && (n = u);
+                            u > i && (i = u), u < n && (n = u);
                             var l = Li.computeC(-e, t, this.convexHullPts[a]);
-                            l > o && (o = l), s > l && (s = l);
+                            l > o && (o = l), l < s && (s = l);
                         }
                         var h = Li.computeSegmentForLine(-t, -e, o), c = Li.computeSegmentForLine(-t, -e, s), f = Li.computeSegmentForLine(-e, t, i), g = Li.computeSegmentForLine(-e, t, n), d = f.lineIntersection(h), p = g.lineIntersection(h), v = g.lineIntersection(c), m = f.lineIntersection(c), y = this.inputGeom.getFactory().createLinearRing([ d, p, v, m, d ]);
                         return this.inputGeom.getFactory().createPolygon(y, null);
@@ -10898,7 +11038,7 @@
                         return new Ti(this.distanceTolerance).transform(this.inputGeom);
                     },
                     setDistanceTolerance: function(t) {
-                        if (0 >= t) throw new i("Tolerance must be positive");
+                        if (t <= 0) throw new i("Tolerance must be positive");
                         this.distanceTolerance = t;
                     },
                     interfaces_: function() {
@@ -10911,7 +11051,7 @@
                     for (var i = new ce(), r = new N(), s = 0; s < t.length - 1; s++) {
                         i.p0 = t[s], i.p1 = t[s + 1], r.add(i.p0, !1);
                         var o = i.getLength(), a = Math.trunc(o / e) + 1;
-                        if (a > 1) for (var u = o / a, l = 1; a > l; l++) {
+                        if (a > 1) for (var u = o / a, l = 1; l < a; l++) {
                             var h = l * u / o, c = i.pointAlong(h);
                             n.makePrecise(c), r.add(c, !1);
                         }
@@ -10977,10 +11117,12 @@
                         var e = this.oNext();
                         this._sym.setNext(t), t.sym().setNext(e);
                     },
-                    degree: function Vo() {
-                        var Vo = 0, t = this;
-                        do Vo++, t = t.oNext(); while (t !== this);
-                        return Vo;
+                    degree: function t() {
+                        var t = 0, e = this;
+                        do {
+                            t++, e = e.oNext();
+                        } while (e !== this);
+                        return t;
                     },
                     equals: function() {
                         if (2 === arguments.length) {
@@ -11001,7 +11143,7 @@
                         var e = this.deltaX(), n = this.deltaY(), i = t.deltaX(), r = t.deltaY();
                         if (e === i && n === r) return 0;
                         var s = Je.quadrant(e, n), o = Je.quadrant(i, r);
-                        return s > o ? 1 : o > s ? -1 : he.computeOrientation(t._orig, t.dest(), this.dest());
+                        return s > o ? 1 : s < o ? -1 : he.computeOrientation(t._orig, t.dest(), this.dest());
                     },
                     prevNode: function() {
                         for (var t = this; 2 === t.degree(); ) if (t = t.prev(), t === this) return null;
@@ -11166,7 +11308,9 @@
                     },
                     stackEdges: function(t) {
                         var e = t;
-                        do bi.isMarked(e) || this.nodeEdgeStack.add(e), e = e.oNext(); while (e !== t);
+                        do {
+                            bi.isMarked(e) || this.nodeEdgeStack.add(e), e = e.oNext();
+                        } while (e !== t);
                     },
                     computeResult: function() {
                         for (var t = this.graph.getVertexEdges(), e = t.iterator(); e.hasNext(); ) {
@@ -11221,7 +11365,7 @@
                 });
                 e(Ai.prototype, {
                     hasChildren: function() {
-                        for (var t = 0; 4 > t; t++) if (null !== this.subnode[t]) return !0;
+                        for (var t = 0; t < 4; t++) if (null !== this.subnode[t]) return !0;
                         return !1;
                     },
                     isPrunable: function() {
@@ -11229,21 +11373,21 @@
                     },
                     addAllItems: function(t) {
                         t.addAll(this.items);
-                        for (var e = 0; 4 > e; e++) null !== this.subnode[e] && this.subnode[e].addAllItems(t);
+                        for (var e = 0; e < 4; e++) null !== this.subnode[e] && this.subnode[e].addAllItems(t);
                         return t;
                     },
                     getNodeCount: function() {
-                        for (var t = 0, e = 0; 4 > e; e++) null !== this.subnode[e] && (t += this.subnode[e].size());
+                        for (var t = 0, e = 0; e < 4; e++) null !== this.subnode[e] && (t += this.subnode[e].size());
                         return t + 1;
                     },
                     size: function() {
-                        for (var t = 0, e = 0; 4 > e; e++) null !== this.subnode[e] && (t += this.subnode[e].size());
+                        for (var t = 0, e = 0; e < 4; e++) null !== this.subnode[e] && (t += this.subnode[e].size());
                         return t + this.items.size();
                     },
                     addAllItemsFromOverlapping: function(t, e) {
                         if (!this.isSearchMatch(t)) return null;
                         e.addAll(this.items);
-                        for (var n = 0; 4 > n; n++) null !== this.subnode[n] && this.subnode[n].addAllItemsFromOverlapping(t, e);
+                        for (var n = 0; n < 4; n++) null !== this.subnode[n] && this.subnode[n].addAllItemsFromOverlapping(t, e);
                     },
                     visitItems: function(t, e) {
                         for (var n = this.items.iterator(); n.hasNext(); ) e.visitItem(n.next());
@@ -11253,7 +11397,7 @@
                     },
                     remove: function(t, e) {
                         if (!this.isSearchMatch(t)) return !1;
-                        for (var n = !1, i = 0; 4 > i; i++) if (null !== this.subnode[i] && (n = this.subnode[i].remove(t, e))) {
+                        for (var n = !1, i = 0; i < 4; i++) if (null !== this.subnode[i] && (n = this.subnode[i].remove(t, e))) {
                             this.subnode[i].isPrunable() && (this.subnode[i] = null);
                             break;
                         }
@@ -11262,23 +11406,23 @@
                     visit: function(t, e) {
                         if (!this.isSearchMatch(t)) return null;
                         this.visitItems(t, e);
-                        for (var n = 0; 4 > n; n++) null !== this.subnode[n] && this.subnode[n].visit(t, e);
+                        for (var n = 0; n < 4; n++) null !== this.subnode[n] && this.subnode[n].visit(t, e);
                     },
                     getItems: function() {
                         return this.items;
                     },
                     depth: function() {
-                        for (var t = 0, e = 0; 4 > e; e++) if (null !== this.subnode[e]) {
+                        for (var t = 0, e = 0; e < 4; e++) if (null !== this.subnode[e]) {
                             var n = this.subnode[e].depth();
                             n > t && (t = n);
                         }
                         return t + 1;
                     },
-                    isEmpty: function ko() {
-                        var ko = !0;
-                        this.items.isEmpty() || (ko = !1);
-                        for (var t = 0; 4 > t; t++) null !== this.subnode[t] && (this.subnode[t].isEmpty() || (ko = !1));
-                        return ko;
+                    isEmpty: function t() {
+                        var t = !0;
+                        this.items.isEmpty() || (t = !1);
+                        for (var e = 0; e < 4; e++) null !== this.subnode[e] && (this.subnode[e].isEmpty() || (t = !1));
+                        return t;
                     },
                     add: function(t) {
                         this.items.add(t);
@@ -11330,7 +11474,7 @@
                 }, h(Gi, Ai), e(Gi.prototype, {
                     find: function(t) {
                         var e = Ai.getSubnodeIndex(t, this.centrex, this.centrey);
-                        if (-1 === e) return this;
+                        if (e === -1) return this;
                         if (null !== this.subnode[e]) {
                             var n = this.subnode[e];
                             return n.find(t);
@@ -11348,7 +11492,7 @@
                     },
                     getNode: function(t) {
                         var e = Ai.getSubnodeIndex(t, this.centrex, this.centrey);
-                        if (-1 !== e) {
+                        if (e !== -1) {
                             var n = this.getSubnode(e);
                             return n.getNode(t);
                         }
@@ -11400,7 +11544,7 @@
                 }, h(qi, Ai), e(qi.prototype, {
                     insert: function(t, e) {
                         var n = Ai.getSubnodeIndex(t, qi.origin.x, qi.origin.y);
-                        if (-1 === n) return this.add(e), null;
+                        if (n === -1) return this.add(e), null;
                         var i = this.subnode[n];
                         if (null === i || !i.getEnvelope().contains(t)) {
                             var r = Gi.createExpanded(i, t);
@@ -11486,7 +11630,7 @@
                         e = "string" == typeof t ? JSON.parse(t) : t;
                         var n = e.type;
                         if (!Eo[n]) throw new Error("Unknown GeoJSON type: " + e.type);
-                        return -1 !== xo.indexOf(n) ? Eo[n].apply(this, [ e.coordinates ]) : "GeometryCollection" === n ? Eo[n].apply(this, [ e.geometries ]) : Eo[n].apply(this, [ e ]);
+                        return xo.indexOf(n) !== -1 ? Eo[n].apply(this, [ e.coordinates ]) : "GeometryCollection" === n ? Eo[n].apply(this, [ e.geometries ]) : Eo[n].apply(this, [ e ]);
                     },
                     write: function(t) {
                         var e = t.getGeometryType();
@@ -11513,12 +11657,12 @@
                         }
                         return t.bbox && (e.bbox = this.parse.bbox.apply(this, [ t.bbox ])), e;
                     },
-                    coordinates: function Yo(t) {
-                        for (var Yo = [], e = 0; e < t.length; ++e) {
-                            var n = t[e];
-                            Yo.push(new g(n[0], n[1]));
+                    coordinates: function t(e) {
+                        for (var t = [], n = 0; n < e.length; ++n) {
+                            var i = e[n];
+                            t.push(new g(i[0], i[1]));
                         }
-                        return Yo;
+                        return t;
                     },
                     bbox: function(t) {
                         return this.geometryFactory.createLinearRing([ new g(t[0], t[1]), new g(t[2], t[1]), new g(t[2], t[3]), new g(t[0], t[3]), new g(t[0], t[1]) ]);
@@ -11642,8 +11786,8 @@
                     reducePrecision: function(t) {
                         var e, n;
                         if (t.coordinate) this.precisionModel.makePrecise(t.coordinate); else if (t.points) for (e = 0, 
-                        n = t.points.length; n > e; e++) this.precisionModel.makePrecise(t.points[e]); else if (t.geometries) for (e = 0, 
-                        n = t.geometries.length; n > e; e++) this.reducePrecision(t.geometries[e]);
+                        n = t.points.length; e < n; e++) this.precisionModel.makePrecise(t.points[e]); else if (t.geometries) for (e = 0, 
+                        n = t.geometries.length; e < n; e++) this.reducePrecision(t.geometries[e]);
                     }
                 }), e(ki.prototype, {
                     write: function(t) {
@@ -11655,11 +11799,12 @@
                         return this.precisionModel.getType() === ee.FIXED && this.reducePrecision(e), e;
                     },
                     reducePrecision: function(t) {
-                        if (t.coordinate) this.precisionModel.makePrecise(t.coordinate); else if (t.points) for (var e = 0, n = t.points.coordinates.length; n > e; e++) this.precisionModel.makePrecise(t.points.coordinates[e]); else if (t.geometries) for (var i = 0, r = t.geometries.length; r > i; i++) this.reducePrecision(t.geometries[i]);
+                        if (t.coordinate) this.precisionModel.makePrecise(t.coordinate); else if (t.points) for (var e = 0, n = t.points.coordinates.length; e < n; e++) this.precisionModel.makePrecise(t.points.coordinates[e]); else if (t.geometries) for (var i = 0, r = t.geometries.length; i < r; i++) this.reducePrecision(t.geometries[i]);
                     }
                 }), e(Xi.prototype, {
                     read: function(t) {
-                        return t instanceof ol.geom.Point ? this.convertFromPoint(t) : t instanceof ol.geom.LineString ? this.convertFromLineString(t) : t instanceof ol.geom.LinearRing ? this.convertFromLinearRing(t) : t instanceof ol.geom.Polygon ? this.convertFromPolygon(t) : t instanceof ol.geom.MultiPoint ? this.convertFromMultiPoint(t) : t instanceof ol.geom.MultiLineString ? this.convertFromMultiLineString(t) : t instanceof ol.geom.MultiPolygon ? this.convertFromMultiPolygon(t) : t instanceof ol.geom.GeometryCollection ? this.convertFromCollection(t) : void 0;
+                        var e = this.ol;
+                        return t instanceof e.geom.Point ? this.convertFromPoint(t) : t instanceof e.geom.LineString ? this.convertFromLineString(t) : t instanceof e.geom.LinearRing ? this.convertFromLinearRing(t) : t instanceof e.geom.Polygon ? this.convertFromPolygon(t) : t instanceof e.geom.MultiPoint ? this.convertFromMultiPoint(t) : t instanceof e.geom.MultiLineString ? this.convertFromMultiLineString(t) : t instanceof e.geom.MultiPolygon ? this.convertFromMultiPolygon(t) : t instanceof e.geom.GeometryCollection ? this.convertFromCollection(t) : void 0;
                     },
                     convertFromPoint: function(t) {
                         var e = t.getCoordinates();
@@ -11710,37 +11855,37 @@
                         return "Point" === t.getGeometryType() ? this.convertToPoint(t.getCoordinate()) : "LineString" === t.getGeometryType() ? this.convertToLineString(t) : "LinearRing" === t.getGeometryType() ? this.convertToLinearRing(t) : "Polygon" === t.getGeometryType() ? this.convertToPolygon(t) : "MultiPoint" === t.getGeometryType() ? this.convertToMultiPoint(t) : "MultiLineString" === t.getGeometryType() ? this.convertToMultiLineString(t) : "MultiPolygon" === t.getGeometryType() ? this.convertToMultiPolygon(t) : "GeometryCollection" === t.getGeometryType() ? this.convertToCollection(t) : void 0;
                     },
                     convertToPoint: function(t) {
-                        return new ol.geom.Point([ t.x, t.y ]);
+                        return new this.ol.geom.Point([ t.x, t.y ]);
                     },
                     convertToLineString: function(t) {
                         var e = t.points.coordinates.map(Ui);
-                        return new ol.geom.LineString(e);
+                        return new this.ol.geom.LineString(e);
                     },
                     convertToLinearRing: function(t) {
                         var e = t.points.coordinates.map(Ui);
-                        return new ol.geom.LinearRing(e);
+                        return new this.ol.geom.LinearRing(e);
                     },
                     convertToPolygon: function(t) {
                         for (var e = [ t.shell.points.coordinates.map(Ui) ], n = 0; n < t.holes.length; n++) e.push(t.holes[n].points.coordinates.map(Ui));
-                        return new ol.geom.Polygon(e);
+                        return new this.ol.geom.Polygon(e);
                     },
                     convertToMultiPoint: function(t) {
-                        return new ol.geom.MultiPoint(t.getCoordinates().map(Ui));
+                        return new this.ol.geom.MultiPoint(t.getCoordinates().map(Ui));
                     },
                     convertToMultiLineString: function(t) {
                         for (var e = [], n = 0; n < t.geometries.length; n++) e.push(this.convertToLineString(t.geometries[n]).getCoordinates());
-                        return new ol.geom.MultiLineString(e);
+                        return new this.ol.geom.MultiLineString(e);
                     },
                     convertToMultiPolygon: function(t) {
                         for (var e = [], n = 0; n < t.geometries.length; n++) e.push(this.convertToPolygon(t.geometries[n]).getCoordinates());
-                        return new ol.geom.MultiPolygon(e);
+                        return new this.ol.geom.MultiPolygon(e);
                     },
                     convertToCollection: function(t) {
                         for (var e = [], n = 0; n < t.geometries.length; n++) {
                             var i = t.geometries[n];
                             e.push(this.write(i));
                         }
-                        return new ol.geom.GeometryCollection(e);
+                        return new this.ol.geom.GeometryCollection(e);
                     }
                 });
                 var No = Object.freeze({
@@ -11837,8 +11982,8 @@
                     isSimpleLinearGeometry: function(t) {
                         if (t.isEmpty()) return !0;
                         var e = new $n(0, t), n = new ae(), i = e.computeSelfNodes(n, !0);
-                        return i.hasIntersection() ? i.hasProperIntersection() ? (this.nonSimpleLocation = i.getProperIntersectionPoint(), 
-                        !1) : this.hasNonEndpointIntersection(e) ? !1 : !this.isClosedEndpointsInInterior || !this.hasClosedEndpointIntersection(e) : !0;
+                        return !i.hasIntersection() || (i.hasProperIntersection() ? (this.nonSimpleLocation = i.getProperIntersectionPoint(), 
+                        !1) : !this.hasNonEndpointIntersection(e) && (!this.isClosedEndpointsInInterior || !this.hasClosedEndpointIntersection(e)));
                     },
                     hasNonEndpointIntersection: function(t) {
                         for (var e = t.getEdgeIterator(); e.hasNext(); ) for (var n = e.next(), i = n.getMaximumSegmentIndex(), r = n.getEdgeIntersectionList().iterator(); r.hasNext(); ) {
@@ -11852,7 +11997,7 @@
                         null === i && (i = new ji(e), t.put(e, i)), i.addEndpoint(n);
                     },
                     computeSimple: function(t) {
-                        return this.nonSimpleLocation = null, t.isEmpty() ? !0 : t instanceof St ? this.isSimpleLinearGeometry(t) : t instanceof gt ? this.isSimpleLinearGeometry(t) : t instanceof Pt ? this.isSimpleMultiPoint(t) : R(t, Rt) ? this.isSimplePolygonal(t) : t instanceof ft ? this.isSimpleGeometryCollection(t) : !0;
+                        return this.nonSimpleLocation = null, !!t.isEmpty() || (t instanceof St ? this.isSimpleLinearGeometry(t) : t instanceof gt ? this.isSimpleLinearGeometry(t) : t instanceof Pt ? this.isSimpleMultiPoint(t) : R(t, Rt) ? this.isSimplePolygonal(t) : !(t instanceof ft) || this.isSimpleGeometryCollection(t));
                     },
                     isSimple: function() {
                         return this.nonSimpleLocation = null, this.computeSimple(this.inputGeom);
@@ -11893,7 +12038,7 @@
                     setQuadrantSegments: function(t) {
                         this.quadrantSegments = t, 0 === this.quadrantSegments && (this.joinStyle = Ki.JOIN_BEVEL), 
                         this.quadrantSegments < 0 && (this.joinStyle = Ki.JOIN_MITRE, this.mitreLimit = Math.abs(this.quadrantSegments)), 
-                        0 >= t && (this.quadrantSegments = 1), this.joinStyle !== Ki.JOIN_ROUND && (this.quadrantSegments = Ki.DEFAULT_QUADRANT_SEGMENTS);
+                        t <= 0 && (this.quadrantSegments = 1), this.joinStyle !== Ki.JOIN_ROUND && (this.quadrantSegments = Ki.DEFAULT_QUADRANT_SEGMENTS);
                     },
                     getJoinStyle: function() {
                         return this.joinStyle;
@@ -11902,7 +12047,7 @@
                         this.joinStyle = t;
                     },
                     setSimplifyFactor: function(t) {
-                        this.simplifyFactor = 0 > t ? 0 : t;
+                        this.simplifyFactor = t < 0 ? 0 : t;
                     },
                     getSimplifyFactor: function() {
                         return this.simplifyFactor;
@@ -11939,7 +12084,7 @@
                     },
                     getRightmostSide: function(t, e) {
                         var n = this.getRightmostSideOfSegment(t, e);
-                        return 0 > n && (n = this.getRightmostSideOfSegment(t, e - 1)), 0 > n && (this.minCoord = null, 
+                        return n < 0 && (n = this.getRightmostSideOfSegment(t, e - 1)), n < 0 && (this.minCoord = null, 
                         this.checkForRightmostCoordinate(t)), n;
                     },
                     findRightmostEdgeAtVertex: function() {
@@ -11951,7 +12096,7 @@
                     },
                     getRightmostSideOfSegment: function(t, e) {
                         var n = t.getEdge(), i = n.getCoordinates();
-                        if (0 > e || e + 1 >= i.length) return -1;
+                        if (e < 0 || e + 1 >= i.length) return -1;
                         if (i[e].y === i[e + 1].y) return -1;
                         var r = cn.LEFT;
                         return i[e].y < i[e + 1].y && (r = cn.RIGHT), r;
@@ -12091,7 +12236,7 @@
                 }), e($i.prototype, {
                     isDeletable: function(t, e, n, i) {
                         var r = this.inputLine[t], s = this.inputLine[e], o = this.inputLine[n];
-                        return this.isConcave(r, s, o) && this.isShallow(r, s, o, i) ? this.isShallowSampled(r, s, t, n, i) : !1;
+                        return !!this.isConcave(r, s, o) && (!!this.isShallow(r, s, o, i) && this.isShallowSampled(r, s, t, n, i));
                     },
                     deleteShallowConcavities: function() {
                         for (var t = 1, e = (this.inputLine.length - 1, this.findNextNonDeletedIndex(t)), n = this.findNextNonDeletedIndex(e), i = !1; n < this.inputLine.length; ) {
@@ -12105,23 +12250,25 @@
                         var r = he.computeOrientation(t, e, n), s = r === this.angleOrientation;
                         if (!s) return !1;
                         var o = he.distancePointLine(e, t, n);
-                        return i > o;
+                        return o < i;
                     },
                     isShallowSampled: function(t, e, n, i, r) {
                         var s = Math.trunc((i - n) / $i.NUM_PTS_TO_CHECK);
-                        0 >= s && (s = 1);
-                        for (var o = n; i > o; o += s) if (!this.isShallow(t, e, this.inputLine[o], r)) return !1;
+                        s <= 0 && (s = 1);
+                        for (var o = n; o < i; o += s) if (!this.isShallow(t, e, this.inputLine[o], r)) return !1;
                         return !0;
                     },
-                    isConcave: function Uo(t, e, n) {
-                        var i = he.computeOrientation(t, e, n), Uo = i === this.angleOrientation;
-                        return Uo;
+                    isConcave: function t(e, n, i) {
+                        var r = he.computeOrientation(e, n, i), t = r === this.angleOrientation;
+                        return t;
                     },
                     simplify: function(t) {
-                        this.distanceTol = Math.abs(t), 0 > t && (this.angleOrientation = he.CLOCKWISE), 
+                        this.distanceTol = Math.abs(t), t < 0 && (this.angleOrientation = he.CLOCKWISE), 
                         this.isDeleted = new Array(this.inputLine.length).fill(null);
                         var e = !1;
-                        do e = this.deleteShallowConcavities(); while (e);
+                        do {
+                            e = this.deleteShallowConcavities();
+                        } while (e);
                         return this.collapseLine();
                     },
                     findNextNonDeletedIndex: function(t) {
@@ -12130,7 +12277,7 @@
                     },
                     isShallow: function(t, e, n, i) {
                         var r = he.distancePointLine(e, t, n);
-                        return i > r;
+                        return r < i;
                     },
                     collapseLine: function() {
                         for (var t = new N(), e = 0; e < this.inputLine.length; e++) this.isDeleted[e] !== $i.DELETE && t.add(this.inputLine[e]);
@@ -12224,17 +12371,17 @@
                         var r = !0, s = null;
                         try {
                             s = F.intersection(e.p0, e.p1, n.p0, n.p1);
-                            var o = 0 >= i ? 1 : s.distance(t) / Math.abs(i);
+                            var o = i <= 0 ? 1 : s.distance(t) / Math.abs(i);
                             o > this.bufParams.getMitreLimit() && (r = !1);
-                        } catch (a) {
-                            if (!(a instanceof w)) throw a;
+                        } catch (t) {
+                            if (!(t instanceof w)) throw t;
                             s = new g(0, 0), r = !1;
                         } finally {}
                         r ? this.segList.addPt(s) : this.addLimitedMitreJoin(e, n, i, this.bufParams.getMitreLimit());
                     },
                     addFilletCorner: function(t, e, n, i, r) {
                         var s = e.x - t.x, o = e.y - t.y, a = Math.atan2(o, s), u = n.x - t.x, l = n.y - t.y, h = Math.atan2(l, u);
-                        i === he.CLOCKWISE ? h >= a && (a += 2 * Math.PI) : a >= h && (a -= 2 * Math.PI), 
+                        i === he.CLOCKWISE ? a <= h && (a += 2 * Math.PI) : a >= h && (a -= 2 * Math.PI), 
                         this.segList.addPt(e), this.addFilletArc(t, a, h, i, r), this.segList.addPt(n);
                     },
                     addOutsideTurn: function(t, e) {
@@ -12272,10 +12419,10 @@
                     },
                     addFilletArc: function(t, e, n, i, r) {
                         var s = i === he.CLOCKWISE ? -1 : 1, o = Math.abs(e - n), a = Math.trunc(o / this.filletAngleQuantum + .5);
-                        if (1 > a) return null;
+                        if (a < 1) return null;
                         var u = null, l = null;
                         u = 0, l = o / a;
-                        for (var h = u, c = new g(); o > h; ) {
+                        for (var h = u, c = new g(); h < o; ) {
                             var f = e + s * h;
                             c.x = t.x + r * Math.cos(f), c.y = t.y + r * Math.sin(f), this.segList.addPt(c), 
                             h += l;
@@ -12329,7 +12476,7 @@
                 e(nr.prototype, {
                     getOffsetCurve: function(t, e) {
                         if (this.distance = e, 0 === e) return null;
-                        var n = 0 > e, i = Math.abs(e), r = this.getSegGen(i);
+                        var n = e < 0, i = Math.abs(e), r = this.getSegGen(i);
                         t.length <= 1 ? this.computePointCurve(t[0], r) : this.computeOffsetCurve(t, n, r);
                         var s = r.getCoordinates();
                         return n && H.reverse(s), s;
@@ -12345,7 +12492,7 @@
                             n.addSegments(t, !1);
                             var a = $i.simplify(t, i), u = a.length - 1;
                             n.initSideSegments(a[0], a[1], cn.LEFT), n.addFirstSegment();
-                            for (var o = 2; u >= o; o++) n.addNextSegment(a[o], !0);
+                            for (var o = 2; o <= u; o++) n.addNextSegment(a[o], !0);
                         }
                         n.addLastSegment(), n.closeRing();
                     },
@@ -12354,7 +12501,7 @@
                         e === cn.RIGHT && (i = -i);
                         var r = $i.simplify(t, i), s = r.length - 1;
                         n.initSideSegments(r[s - 1], r[0], e);
-                        for (var o = 1; s >= o; o++) {
+                        for (var o = 1; o <= s; o++) {
                             var a = 1 !== o;
                             n.addNextSegment(r[o], a);
                         }
@@ -12363,7 +12510,7 @@
                     computeLineBufferCurve: function(t, e) {
                         var n = this.simplifyTolerance(this.distance), i = $i.simplify(t, n), r = i.length - 1;
                         e.initSideSegments(i[0], i[1], cn.LEFT);
-                        for (var s = 2; r >= s; s++) e.addNextSegment(i[s], !0);
+                        for (var s = 2; s <= r; s++) e.addNextSegment(i[s], !0);
                         e.addLastSegment(), e.addLineEndCap(i[r - 1], i[r]);
                         var o = $i.simplify(t, -n), a = o.length - 1;
                         e.initSideSegments(o[a], o[a - 1], cn.LEFT);
@@ -12381,11 +12528,11 @@
                         }
                     },
                     getLineCurve: function(t, e) {
-                        if (this.distance = e, 0 > e && !this.bufParams.isSingleSided()) return null;
+                        if (this.distance = e, e < 0 && !this.bufParams.isSingleSided()) return null;
                         if (0 === e) return null;
                         var n = Math.abs(e), i = this.getSegGen(n);
                         if (t.length <= 1) this.computePointCurve(t[0], i); else if (this.bufParams.isSingleSided()) {
-                            var r = 0 > e;
+                            var r = e < 0;
                             this.computeSingleSidedBufferCurve(t, r, i);
                         } else this.computeLineBufferCurve(t, i);
                         var s = i.getCoordinates();
@@ -12412,7 +12559,7 @@
                         } else {
                             var a = $i.simplify(t, i), u = a.length - 1;
                             n.initSideSegments(a[0], a[1], cn.LEFT), n.addFirstSegment();
-                            for (var o = 2; u >= o; o++) n.addNextSegment(a[o], !0);
+                            for (var o = 2; o <= u; o++) n.addNextSegment(a[o], !0);
                         }
                         n.addLastSegment();
                     },
@@ -12535,10 +12682,10 @@
                     },
                     isErodedCompletely: function(t, e) {
                         var n = t.getCoordinates();
-                        if (n.length < 4) return 0 > e;
+                        if (n.length < 4) return e < 0;
                         if (4 === n.length) return this.isTriangleErodedCompletely(n, e);
                         var i = t.getEnvelopeInternal(), r = Math.min(i.getHeight(), i.getWidth());
-                        return 0 > e && 2 * Math.abs(e) > r;
+                        return e < 0 && 2 * Math.abs(e) > r;
                     },
                     addCollection: function(t) {
                         for (var e = 0; e < t.getNumGeometries(); e++) {
@@ -12759,21 +12906,21 @@
                         return this.safeEnv;
                     },
                     intersectsPixelClosure: function(t, e) {
-                        return this.li.computeIntersection(t, e, this.corner[0], this.corner[1]), this.li.hasIntersection() ? !0 : (this.li.computeIntersection(t, e, this.corner[1], this.corner[2]), 
-                        this.li.hasIntersection() ? !0 : (this.li.computeIntersection(t, e, this.corner[2], this.corner[3]), 
-                        this.li.hasIntersection() ? !0 : (this.li.computeIntersection(t, e, this.corner[3], this.corner[0]), 
+                        return this.li.computeIntersection(t, e, this.corner[0], this.corner[1]), !!this.li.hasIntersection() || (this.li.computeIntersection(t, e, this.corner[1], this.corner[2]), 
+                        !!this.li.hasIntersection() || (this.li.computeIntersection(t, e, this.corner[2], this.corner[3]), 
+                        !!this.li.hasIntersection() || (this.li.computeIntersection(t, e, this.corner[3], this.corner[0]), 
                         !!this.li.hasIntersection())));
                     },
                     intersectsToleranceSquare: function(t, e) {
                         var n = !1, i = !1;
-                        return this.li.computeIntersection(t, e, this.corner[0], this.corner[1]), this.li.isProper() ? !0 : (this.li.computeIntersection(t, e, this.corner[1], this.corner[2]), 
-                        this.li.isProper() ? !0 : (this.li.hasIntersection() && (n = !0), this.li.computeIntersection(t, e, this.corner[2], this.corner[3]), 
-                        this.li.isProper() ? !0 : (this.li.hasIntersection() && (i = !0), this.li.computeIntersection(t, e, this.corner[3], this.corner[0]), 
-                        this.li.isProper() ? !0 : n && i ? !0 : t.equals(this.pt) ? !0 : !!e.equals(this.pt))));
+                        return this.li.computeIntersection(t, e, this.corner[0], this.corner[1]), !!this.li.isProper() || (this.li.computeIntersection(t, e, this.corner[1], this.corner[2]), 
+                        !!this.li.isProper() || (this.li.hasIntersection() && (n = !0), this.li.computeIntersection(t, e, this.corner[2], this.corner[3]), 
+                        !!this.li.isProper() || (this.li.hasIntersection() && (i = !0), this.li.computeIntersection(t, e, this.corner[3], this.corner[0]), 
+                        !!this.li.isProper() || (!(!n || !i) || (!!t.equals(this.pt) || !!e.equals(this.pt))))));
                     },
                     addSnappedNode: function(t, e) {
                         var n = t.getCoordinate(e), i = t.getCoordinate(e + 1);
-                        return this.intersects(n, i) ? (t.addIntersection(this.getCoordinate(), e), !0) : !1;
+                        return !!this.intersects(n, i) && (t.addIntersection(this.getCoordinate(), e), !0);
                     },
                     interfaces_: function() {
                         return [];
@@ -12847,9 +12994,9 @@
                         var e = Ke.getNodedSubstrings(t), n = new ur(e);
                         try {
                             n.checkValid();
-                        } catch (i) {
-                            if (!(i instanceof S)) throw i;
-                            i.printStackTrace();
+                        } catch (t) {
+                            if (!(t instanceof S)) throw t;
+                            t.printStackTrace();
                         } finally {}
                     },
                     getNodedSubstrings: function() {
@@ -12898,17 +13045,17 @@
                             for (var t = dr.MAX_PRECISION_DIGITS; t >= 0; t--) {
                                 try {
                                     this.bufferReducedPrecision(t);
-                                } catch (e) {
-                                    if (!(e instanceof sn)) throw e;
-                                    this.saveException = e;
+                                } catch (t) {
+                                    if (!(t instanceof sn)) throw t;
+                                    this.saveException = t;
                                 } finally {}
                                 if (null !== this.resultGeometry) return null;
                             }
                             throw this.saveException;
                         }
                         if (1 === arguments.length) {
-                            var n = arguments[0], i = dr.precisionScaleFactor(this.argGeom, this.distance, n), r = new ee(i);
-                            this.bufferFixedPrecision(r);
+                            var e = arguments[0], n = dr.precisionScaleFactor(this.argGeom, this.distance, e), i = new ee(n);
+                            this.bufferFixedPrecision(i);
                         }
                     },
                     computeGeometry: function() {
@@ -12923,9 +13070,9 @@
                         try {
                             var t = new ar(this.bufParams);
                             this.resultGeometry = t.buffer(this.argGeom, this.distance);
-                        } catch (e) {
-                            if (!(e instanceof l)) throw e;
-                            this.saveException = e;
+                        } catch (t) {
+                            if (!(t instanceof l)) throw t;
+                            this.saveException = t;
                         } finally {}
                     },
                     getResultGeometry: function(t) {
@@ -13377,7 +13524,7 @@
                         }
                         if (Number.isInteger(arguments[0])) {
                             var r = arguments[0], s = r % this.outEdges.size();
-                            return 0 > s && (s += this.outEdges.size()), s;
+                            return s < 0 && (s += this.outEdges.size()), s;
                         }
                     },
                     add: function(t) {
@@ -13535,7 +13682,7 @@
                         if (t.isEmpty()) return null;
                         var e = H.removeRepeatedPoints(t.getCoordinates());
                         if (e.length <= 1) return null;
-                        var n = e[0], i = e[e.length - 1], r = this.getNode(n), s = this.getNode(i), o = new Cr(r, s, e[1], (!0)), a = new Cr(s, r, e[e.length - 2], (!1)), u = new Rr(t);
+                        var n = e[0], i = e[e.length - 1], r = this.getNode(n), s = this.getNode(i), o = new Cr(r, s, e[1], !0), a = new Cr(s, r, e[e.length - 2], !1), u = new Rr(t);
                         u.setDirectedEdges(o, a), this.add(u);
                     },
                     getNode: function(t) {
@@ -13586,7 +13733,9 @@
                     },
                     buildEdgeStringStartingWith: function(t) {
                         var e = new Er(this.factory), n = t;
-                        do e.add(n), n.getEdge().setMarked(!0), n = n.getNext(); while (null !== n && n !== t);
+                        do {
+                            e.add(n), n.getEdge().setMarked(!0), n = n.getNext();
+                        } while (null !== n && n !== t);
                         return e;
                     },
                     add: function() {
@@ -13666,115 +13815,66 @@
                         return Mr;
                     }
                 }), e(Dr.prototype, {
-                    isIncluded: function() {
-                        return this._isIncluded;
+                    visitInteriorRing: function(t, e) {
+                        var n = t.getCoordinates(), i = n[0], r = Dr.findDifferentPoint(n, i), s = e.findEdgeInSameDirection(i, r), o = e.findEdgeEnd(s), a = null;
+                        o.getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR ? a = o : o.getSym().getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR && (a = o.getSym()), 
+                        f.isTrue(null !== a, "unable to find dirEdge with Interior on RHS"), this.visitLinkedDirectedEdges(a);
                     },
-                    getCoordinates: function() {
-                        if (null === this.ringPts) {
-                            for (var t = new N(), e = this.deList.iterator(); e.hasNext(); ) {
-                                var n = e.next(), i = n.getEdge();
-                                Dr.addEdge(i.getLine().getCoordinates(), n.getEdgeDirection(), t);
+                    visitShellInteriors: function(t, e) {
+                        if (t instanceof Tt) {
+                            var n = t;
+                            this.visitInteriorRing(n.getExteriorRing(), e);
+                        }
+                        if (t instanceof Ot) for (var i = t, r = 0; r < i.getNumGeometries(); r++) {
+                            var n = i.getGeometryN(r);
+                            this.visitInteriorRing(n.getExteriorRing(), e);
+                        }
+                    },
+                    getCoordinate: function() {
+                        return this.disconnectedRingcoord;
+                    },
+                    setInteriorEdgesInResult: function(t) {
+                        for (var e = t.getEdgeEnds().iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            n.getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR && n.setInResult(!0);
+                        }
+                    },
+                    visitLinkedDirectedEdges: function(t) {
+                        var e = t, n = t;
+                        do {
+                            f.isTrue(null !== n, "found null Directed Edge"), n.setVisited(!0), n = n.getNext();
+                        } while (n !== e);
+                    },
+                    buildEdgeRings: function(t) {
+                        for (var e = new I(), n = t.iterator(); n.hasNext(); ) {
+                            var i = n.next();
+                            if (i.isInResult() && null === i.getEdgeRing()) {
+                                var r = new vn(i, this.geometryFactory);
+                                r.linkDirectedEdgesForMinimalEdgeRings();
+                                var s = r.buildMinimalRings();
+                                e.addAll(s);
                             }
-                            this.ringPts = t.toCoordinateArray();
                         }
-                        return this.ringPts;
+                        return e;
                     },
-                    isIncludedSet: function() {
-                        return this._isIncludedSet;
-                    },
-                    isValid: function() {
-                        return this.getCoordinates(), this.ringPts.length <= 3 ? !1 : (this.getRing(), this.ring.isValid());
-                    },
-                    build: function(t) {
-                        var e = t;
-                        do this.add(e), e.setRing(this), e = e.getNext(), f.isTrue(null !== e, "found null DE in ring"), 
-                        f.isTrue(e === t || !e.isInRing(), "found DE already in ring"); while (e !== t);
-                    },
-                    isOuterHole: function() {
-                        return this._isHole ? !this.hasShell() : !1;
-                    },
-                    getPolygon: function() {
-                        var t = null;
-                        if (null !== this.holes) {
-                            t = new Array(this.holes.size()).fill(null);
-                            for (var e = 0; e < this.holes.size(); e++) t[e] = this.holes.get(e);
+                    hasUnvisitedShellEdge: function(t) {
+                        for (var e = 0; e < t.size(); e++) {
+                            var n = t.get(e);
+                            if (!n.isHole()) {
+                                var i = n.getEdges(), r = i.get(0);
+                                if (r.getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR) for (var s = 0; s < i.size(); s++) if (r = i.get(s), 
+                                !r.isVisited()) return this.disconnectedRingcoord = r.getCoordinate(), !0;
+                            }
                         }
-                        var n = this.factory.createPolygon(this.ring, t);
-                        return n;
+                        return !1;
                     },
-                    isHole: function() {
-                        return this._isHole;
-                    },
-                    isProcessed: function() {
-                        return this._isProcessed;
-                    },
-                    addHole: function() {
-                        if (arguments[0] instanceof bt) {
-                            var t = arguments[0];
-                            null === this.holes && (this.holes = new I()), this.holes.add(t);
-                        } else if (arguments[0] instanceof Dr) {
-                            var e = arguments[0];
-                            e.setShell(this);
-                            var n = e.getRing();
-                            null === this.holes && (this.holes = new I()), this.holes.add(n);
-                        }
-                    },
-                    setIncluded: function(t) {
-                        this._isIncluded = t, this._isIncludedSet = !0;
-                    },
-                    getOuterHole: function() {
-                        if (this.isHole()) return null;
-                        for (var t = 0; t < this.deList.size(); t++) {
-                            var e = this.deList.get(t), n = e.getSym().getRing();
-                            if (n.isOuterHole()) return n;
-                        }
-                        return null;
-                    },
-                    computeHole: function() {
-                        var t = this.getRing();
-                        this._isHole = he.isCCW(t.getCoordinates());
-                    },
-                    hasShell: function() {
-                        return null !== this.shell;
-                    },
-                    isOuterShell: function() {
-                        return null !== this.getOuterHole();
-                    },
-                    getLineString: function() {
-                        return this.getCoordinates(), this.factory.createLineString(this.ringPts);
-                    },
-                    toString: function() {
-                        return se.toLineString(new Gt(this.getCoordinates()));
-                    },
-                    getShell: function() {
-                        return this.isHole() ? this.shell : this;
-                    },
-                    add: function(t) {
-                        this.deList.add(t);
-                    },
-                    getRing: function() {
-                        if (null !== this.ring) return this.ring;
-                        this.getCoordinates(), this.ringPts.length < 3 && A.out.println(this.ringPts);
-                        try {
-                            this.ring = this.factory.createLinearRing(this.ringPts);
-                        } catch (t) {
-                            if (!(t instanceof S)) throw t;
-                            A.out.println(this.ringPts);
-                        } finally {}
-                        return this.ring;
-                    },
-                    updateIncluded: function() {
-                        if (this.isHole()) return null;
-                        for (var t = 0; t < this.deList.size(); t++) {
-                            var e = this.deList.get(t), n = e.getSym().getRing().getShell();
-                            if (null !== n && n.isIncludedSet()) return this.setIncluded(!n.isIncluded()), null;
-                        }
-                    },
-                    setShell: function(t) {
-                        this.shell = t;
-                    },
-                    setProcessed: function(t) {
-                        this._isProcessed = t;
+                    isInteriorsConnected: function() {
+                        var t = new I();
+                        this.geomGraph.computeSplitEdges(t);
+                        var e = new Cn(new On());
+                        e.addEdges(t), this.setInteriorEdgesInResult(e), e.linkResultDirectedEdges();
+                        var n = this.buildEdgeRings(e.getEdgeEnds());
+                        return this.visitShellInteriors(this.geomGraph.getGeometry(), e), !this.hasUnvisitedShellEdge(n);
                     },
                     interfaces_: function() {
                         return [];
@@ -13782,299 +13882,10 @@
                     getClass: function() {
                         return Dr;
                     }
-                }), Dr.findDirEdgesInRing = function(t) {
-                    var e = t, n = new I();
-                    do n.add(e), e = e.getNext(), f.isTrue(null !== e, "found null DE in ring"), f.isTrue(e === t || !e.isInRing(), "found DE already in ring"); while (e !== t);
-                    return n;
-                }, Dr.addEdge = function(t, e, n) {
-                    if (e) for (var i = 0; i < t.length; i++) n.add(t[i], !1); else for (var i = t.length - 1; i >= 0; i--) n.add(t[i], !1);
-                }, Dr.findEdgeRingContaining = function(t, e) {
-                    for (var n = t.getRing(), i = n.getEnvelopeInternal(), r = n.getCoordinateN(0), s = null, o = null, a = e.iterator(); a.hasNext(); ) {
-                        var u = a.next(), l = u.getRing(), h = l.getEnvelopeInternal();
-                        if (!h.equals(i) && h.contains(i)) {
-                            r = H.ptNotInList(n.getCoordinates(), l.getCoordinates());
-                            var c = !1;
-                            he.isPointInRing(r, l.getCoordinates()) && (c = !0), c && (null === s || o.contains(h)) && (s = u, 
-                            o = s.getRing().getEnvelopeInternal());
-                        }
-                    }
-                    return s;
+                }), Dr.findDifferentPoint = function(t, e) {
+                    for (var n = 0; n < t.length; n++) if (!t[n].equals(e)) return t[n];
+                    return null;
                 }, e(Ar.prototype, {
-                    compare: function(t, e) {
-                        var n = t, i = e;
-                        return n.getRing().getEnvelope().compareTo(i.getRing().getEnvelope());
-                    },
-                    interfaces_: function() {
-                        return [ a ];
-                    },
-                    getClass: function() {
-                        return Ar;
-                    }
-                }), Dr.EnvelopeComparator = Ar, h(Fr, Pr), e(Fr.prototype, {
-                    findEdgeRing: function(t) {
-                        var e = new Dr(this.factory);
-                        return e.build(t), e;
-                    },
-                    computeDepthParity: function() {
-                        if (0 === arguments.length) for (;;) {
-                            var t = null;
-                            if (null === t) return null;
-                            this.computeDepthParity(t);
-                        } else if (1 === arguments.length) {
-                            arguments[0];
-                        }
-                    },
-                    computeNextCWEdges: function() {
-                        for (var t = this.nodeIterator(); t.hasNext(); ) {
-                            var e = t.next();
-                            Fr.computeNextCWEdges(e);
-                        }
-                    },
-                    addEdge: function(t) {
-                        if (t.isEmpty()) return null;
-                        var e = H.removeRepeatedPoints(t.getCoordinates());
-                        if (e.length < 2) return null;
-                        var n = e[0], i = e[e.length - 1], r = this.getNode(n), s = this.getNode(i), o = new _r(r, s, e[1], (!0)), a = new _r(s, r, e[e.length - 2], (!1)), u = new Mr(t);
-                        u.setDirectedEdges(o, a), this.add(u);
-                    },
-                    deleteCutEdges: function() {
-                        this.computeNextCWEdges(), Fr.findLabeledEdgeRings(this.dirEdges);
-                        for (var t = new I(), e = this.dirEdges.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            if (!n.isMarked()) {
-                                var i = n.getSym();
-                                if (n.getLabel() === i.getLabel()) {
-                                    n.setMarked(!0), i.setMarked(!0);
-                                    var r = n.getEdge();
-                                    t.add(r.getLine());
-                                }
-                            }
-                        }
-                        return t;
-                    },
-                    getEdgeRings: function() {
-                        this.computeNextCWEdges(), Fr.label(this.dirEdges, -1);
-                        var t = Fr.findLabeledEdgeRings(this.dirEdges);
-                        this.convertMaximalToMinimalEdgeRings(t);
-                        for (var e = new I(), n = this.dirEdges.iterator(); n.hasNext(); ) {
-                            var i = n.next();
-                            if (!i.isMarked() && !i.isInRing()) {
-                                var r = this.findEdgeRing(i);
-                                e.add(r);
-                            }
-                        }
-                        return e;
-                    },
-                    getNode: function(t) {
-                        var e = this.findNode(t);
-                        return null === e && (e = new Lr(t), this.add(e)), e;
-                    },
-                    convertMaximalToMinimalEdgeRings: function(t) {
-                        for (var e = t.iterator(); e.hasNext(); ) {
-                            var n = e.next(), i = n.getLabel(), r = Fr.findIntersectionNodes(n, i);
-                            if (null !== r) for (var s = r.iterator(); s.hasNext(); ) {
-                                var o = s.next();
-                                Fr.computeNextCCWEdges(o, i);
-                            }
-                        }
-                    },
-                    deleteDangles: function() {
-                        for (var t = this.findNodesOfDegree(1), e = new J(), n = new pe(), i = t.iterator(); i.hasNext(); ) n.push(i.next());
-                        for (;!n.isEmpty(); ) {
-                            var r = n.pop();
-                            Fr.deleteAllEdges(r);
-                            for (var s = r.getOutEdges().getEdges(), i = s.iterator(); i.hasNext(); ) {
-                                var o = i.next();
-                                o.setMarked(!0);
-                                var a = o.getSym();
-                                null !== a && a.setMarked(!0);
-                                var u = o.getEdge();
-                                e.add(u.getLine());
-                                var l = o.getToNode();
-                                1 === Fr.getDegreeNonDeleted(l) && n.push(l);
-                            }
-                        }
-                        return e;
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Fr;
-                    }
-                }), Fr.findLabeledEdgeRings = function(t) {
-                    for (var e = new I(), n = 1, i = t.iterator(); i.hasNext(); ) {
-                        var r = i.next();
-                        if (!(r.isMarked() || r.getLabel() >= 0)) {
-                            e.add(r);
-                            var s = Dr.findDirEdgesInRing(r);
-                            Fr.label(s, n), n++;
-                        }
-                    }
-                    return e;
-                }, Fr.getDegreeNonDeleted = function(t) {
-                    for (var e = t.getOutEdges().getEdges(), n = 0, i = e.iterator(); i.hasNext(); ) {
-                        var r = i.next();
-                        r.isMarked() || n++;
-                    }
-                    return n;
-                }, Fr.deleteAllEdges = function(t) {
-                    for (var e = t.getOutEdges().getEdges(), n = e.iterator(); n.hasNext(); ) {
-                        var i = n.next();
-                        i.setMarked(!0);
-                        var r = i.getSym();
-                        null !== r && r.setMarked(!0);
-                    }
-                }, Fr.label = function(t, e) {
-                    for (var n = t.iterator(); n.hasNext(); ) {
-                        var i = n.next();
-                        i.setLabel(e);
-                    }
-                }, Fr.computeNextCWEdges = function(t) {
-                    for (var e = t.getOutEdges(), n = null, i = null, r = e.getEdges().iterator(); r.hasNext(); ) {
-                        var s = r.next();
-                        if (!s.isMarked()) {
-                            if (null === n && (n = s), null !== i) {
-                                var o = i.getSym();
-                                o.setNext(s);
-                            }
-                            i = s;
-                        }
-                    }
-                    if (null !== i) {
-                        var o = i.getSym();
-                        o.setNext(n);
-                    }
-                }, Fr.computeNextCCWEdges = function(t, e) {
-                    for (var n = t.getOutEdges(), i = null, r = null, s = n.getEdges(), o = s.size() - 1; o >= 0; o--) {
-                        var a = s.get(o), u = a.getSym(), l = null;
-                        a.getLabel() === e && (l = a);
-                        var h = null;
-                        u.getLabel() === e && (h = u), null === l && null === h || (null !== h && (r = h), 
-                        null !== l && (null !== r && (r.setNext(l), r = null), null === i && (i = l)));
-                    }
-                    null !== r && (f.isTrue(null !== i), r.setNext(i));
-                }, Fr.getDegree = function(t, e) {
-                    for (var n = t.getOutEdges().getEdges(), i = 0, r = n.iterator(); r.hasNext(); ) {
-                        var s = r.next();
-                        s.getLabel() === e && i++;
-                    }
-                    return i;
-                }, Fr.findIntersectionNodes = function(t, e) {
-                    var n = t, i = null;
-                    do {
-                        var r = n.getFromNode();
-                        Fr.getDegree(r, e) > 1 && (null === i && (i = new I()), i.add(r)), n = n.getNext(), 
-                        f.isTrue(null !== n, "found null DE in ring"), f.isTrue(n === t || !n.isInRing(), "found DE already in ring");
-                    } while (n !== t);
-                    return i;
-                }, e(Gr.prototype, {
-                    getGeometry: function() {
-                        return null === this.geomFactory && (this.geomFactory = new ie()), this.polygonize(), 
-                        this.extractOnlyPolygonal ? this.geomFactory.buildGeometry(this.polyList) : this.geomFactory.createGeometryCollection(ie.toGeometryArray(this.polyList));
-                    },
-                    getInvalidRingLines: function() {
-                        return this.polygonize(), this.invalidRingLines;
-                    },
-                    findValidRings: function(t, e, n) {
-                        for (var i = t.iterator(); i.hasNext(); ) {
-                            var r = i.next();
-                            r.isValid() ? e.add(r) : n.add(r.getLineString());
-                        }
-                    },
-                    polygonize: function() {
-                        if (null !== this.polyList) return null;
-                        if (this.polyList = new I(), null === this.graph) return null;
-                        this.dangles = this.graph.deleteDangles(), this.cutEdges = this.graph.deleteCutEdges();
-                        var t = this.graph.getEdgeRings(), e = new I();
-                        this.invalidRingLines = new I(), this.isCheckingRingsValid ? this.findValidRings(t, e, this.invalidRingLines) : e = t, 
-                        this.findShellsAndHoles(e), Gr.assignHolesToShells(this.holeList, this.shellList), 
-                        ho.sort(this.shellList, new Dr.EnvelopeComparator());
-                        var n = !0;
-                        this.extractOnlyPolygonal && (Gr.findDisjointShells(this.shellList), n = !1), this.polyList = Gr.extractPolygons(this.shellList, n);
-                    },
-                    getDangles: function() {
-                        return this.polygonize(), this.dangles;
-                    },
-                    getCutEdges: function() {
-                        return this.polygonize(), this.cutEdges;
-                    },
-                    getPolygons: function() {
-                        return this.polygonize(), this.polyList;
-                    },
-                    add: function() {
-                        if (R(arguments[0], v)) for (var t = arguments[0], e = t.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            this.add(n);
-                        } else if (arguments[0] instanceof St) {
-                            var i = arguments[0];
-                            this.geomFactory = i.getFactory(), null === this.graph && (this.graph = new Fr(this.geomFactory)), 
-                            this.graph.addEdge(i);
-                        } else if (arguments[0] instanceof B) {
-                            var r = arguments[0];
-                            r.apply(this.lineStringAdder);
-                        }
-                    },
-                    setCheckRingsValid: function(t) {
-                        this.isCheckingRingsValid = t;
-                    },
-                    findShellsAndHoles: function(t) {
-                        this.holeList = new I(), this.shellList = new I();
-                        for (var e = t.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            n.computeHole(), n.isHole() ? this.holeList.add(n) : this.shellList.add(n);
-                        }
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Gr;
-                    }
-                }), Gr.findOuterShells = function(t) {
-                    for (var e = t.iterator(); e.hasNext(); ) {
-                        var n = e.next(), i = n.getOuterHole();
-                        null === i || i.isProcessed() || (n.setIncluded(!0), i.setProcessed(!0));
-                    }
-                }, Gr.extractPolygons = function(t, e) {
-                    for (var n = new I(), i = t.iterator(); i.hasNext(); ) {
-                        var r = i.next();
-                        (e || r.isIncluded()) && n.add(r.getPolygon());
-                    }
-                    return n;
-                }, Gr.assignHolesToShells = function(t, e) {
-                    for (var n = t.iterator(); n.hasNext(); ) {
-                        var i = n.next();
-                        Gr.assignHoleToShell(i, e);
-                    }
-                }, Gr.assignHoleToShell = function(t, e) {
-                    var n = Dr.findEdgeRingContaining(t, e);
-                    null !== n && n.addHole(t);
-                }, Gr.findDisjointShells = function(t) {
-                    Gr.findOuterShells(t);
-                    var e = null;
-                    do {
-                        e = !1;
-                        for (var n = t.iterator(); n.hasNext(); ) {
-                            var i = n.next();
-                            i.isIncludedSet() || (i.updateIncluded(), i.isIncludedSet() || (e = !0));
-                        }
-                    } while (e);
-                }, e(qr.prototype, {
-                    filter: function(t) {
-                        t instanceof St && this.p.add(t);
-                    },
-                    interfaces_: function() {
-                        return [ q ];
-                    },
-                    getClass: function() {
-                        return qr;
-                    }
-                }), Gr.LineStringAdder = qr;
-                var To = Object.freeze({
-                    Polygonizer: Gr
-                });
-                e(Br.prototype, {
                     createEdgeEndForNext: function(t, e, n, i) {
                         var r = n.segmentIndex + 1;
                         if (r >= t.getNumPoints() && null === i) return null;
@@ -14110,22 +13921,24 @@
                             var a = o.iterator(), u = null, l = null;
                             if (!a.hasNext()) return null;
                             var h = a.next();
-                            do u = l, l = h, h = null, a.hasNext() && (h = a.next()), null !== l && (this.createEdgeEndForPrev(r, s, l, u), 
-                            this.createEdgeEndForNext(r, s, l, h)); while (null !== l);
+                            do {
+                                u = l, l = h, h = null, a.hasNext() && (h = a.next()), null !== l && (this.createEdgeEndForPrev(r, s, l, u), 
+                                this.createEdgeEndForNext(r, s, l, h));
+                            } while (null !== l);
                         }
                     },
                     interfaces_: function() {
                         return [];
                     },
                     getClass: function() {
-                        return Br;
+                        return Ar;
                     }
-                }), h(zr, En), e(zr.prototype, {
+                }), h(Fr, En), e(Fr.prototype, {
                     insert: function(t) {
                         this.edgeEnds.add(t);
                     },
                     print: function(t) {
-                        t.println("EdgeEndBundle--> Label: " + this.label);
+                        t.println("EdgeEndBundle--\x3e Label: " + this.label);
                         for (var e = this.iterator(); e.hasNext(); ) {
                             var n = e.next();
                             n.print(t), t.println();
@@ -14170,15 +13983,15 @@
                             i.getLabel().isArea() && (e = !0);
                         }
                         e ? this.label = new gn(L.NONE, L.NONE, L.NONE) : this.label = new gn(L.NONE);
-                        for (var r = 0; 2 > r; r++) this.computeLabelOn(r, t), e && this.computeLabelSides(r);
+                        for (var r = 0; r < 2; r++) this.computeLabelOn(r, t), e && this.computeLabelSides(r);
                     },
                     interfaces_: function() {
                         return [];
                     },
                     getClass: function() {
-                        return zr;
+                        return Fr;
                     }
-                }), h(Vr, Pn), e(Vr.prototype, {
+                }), h(Gr, Pn), e(Gr.prototype, {
                     updateIM: function(t) {
                         for (var e = this.iterator(); e.hasNext(); ) {
                             var n = e.next();
@@ -14187,15 +14000,15 @@
                     },
                     insert: function(t) {
                         var e = this.edgeMap.get(t);
-                        null === e ? (e = new zr(t), this.insertEdgeEnd(t, e)) : e.insert(t);
+                        null === e ? (e = new Fr(t), this.insertEdgeEnd(t, e)) : e.insert(t);
                     },
                     interfaces_: function() {
                         return [];
                     },
                     getClass: function() {
-                        return Vr;
+                        return Gr;
                     }
-                }), h(kr, yn), e(kr.prototype, {
+                }), h(qr, yn), e(qr.prototype, {
                     updateIMFromEdges: function(t) {
                         this.edges.updateIM(t);
                     },
@@ -14206,645 +14019,19 @@
                         return [];
                     },
                     getClass: function() {
-                        return kr;
+                        return qr;
                     }
-                }), h(Yr, Nn), e(Yr.prototype, {
+                }), h(Br, Nn), e(Br.prototype, {
                     createNode: function(t) {
-                        return new kr(t, new Vr());
+                        return new qr(t, new Gr());
                     },
                     interfaces_: function() {
                         return [];
                     },
                     getClass: function() {
-                        return Yr;
+                        return Br;
                     }
-                }), e(Ur.prototype, {
-                    insertEdgeEnds: function(t) {
-                        for (var e = t.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            this.nodes.add(n);
-                        }
-                    },
-                    computeProperIntersectionIM: function(t, e) {
-                        var n = this.arg[0].getGeometry().getDimension(), i = this.arg[1].getGeometry().getDimension(), r = t.hasProperIntersection(), s = t.hasProperInteriorIntersection();
-                        2 === n && 2 === i ? r && e.setAtLeast("212101212") : 2 === n && 1 === i ? (r && e.setAtLeast("FFF0FFFF2"), 
-                        s && e.setAtLeast("1FFFFF1FF")) : 1 === n && 2 === i ? (r && e.setAtLeast("F0FFFFFF2"), 
-                        s && e.setAtLeast("1F1FFFFFF")) : 1 === n && 1 === i && s && e.setAtLeast("0FFFFFFFF");
-                    },
-                    labelIsolatedEdges: function(t, e) {
-                        for (var n = this.arg[t].getEdgeIterator(); n.hasNext(); ) {
-                            var i = n.next();
-                            i.isIsolated() && (this.labelIsolatedEdge(i, e, this.arg[e].getGeometry()), this.isolatedEdges.add(i));
-                        }
-                    },
-                    labelIsolatedEdge: function(t, e, n) {
-                        if (n.getDimension() > 0) {
-                            var i = this.ptLocator.locate(t.getCoordinate(), n);
-                            t.getLabel().setAllLocations(e, i);
-                        } else t.getLabel().setAllLocations(e, L.EXTERIOR);
-                    },
-                    computeIM: function() {
-                        var t = new fe();
-                        if (t.set(L.EXTERIOR, L.EXTERIOR, 2), !this.arg[0].getGeometry().getEnvelopeInternal().intersects(this.arg[1].getGeometry().getEnvelopeInternal())) return this.computeDisjointIM(t), 
-                        t;
-                        this.arg[0].computeSelfNodes(this.li, !1), this.arg[1].computeSelfNodes(this.li, !1);
-                        var e = this.arg[0].computeEdgeIntersections(this.arg[1], this.li, !1);
-                        this.computeIntersectionNodes(0), this.computeIntersectionNodes(1), this.copyNodesAndLabels(0), 
-                        this.copyNodesAndLabels(1), this.labelIsolatedNodes(), this.computeProperIntersectionIM(e, t);
-                        var n = new Br(), i = n.computeEdgeEnds(this.arg[0].getEdgeIterator());
-                        this.insertEdgeEnds(i);
-                        var r = n.computeEdgeEnds(this.arg[1].getEdgeIterator());
-                        return this.insertEdgeEnds(r), this.labelNodeEdges(), this.labelIsolatedEdges(0, 1), 
-                        this.labelIsolatedEdges(1, 0), this.updateIM(t), t;
-                    },
-                    labelNodeEdges: function() {
-                        for (var t = this.nodes.iterator(); t.hasNext(); ) {
-                            var e = t.next();
-                            e.getEdges().computeLabelling(this.arg);
-                        }
-                    },
-                    copyNodesAndLabels: function(t) {
-                        for (var e = this.arg[t].getNodeIterator(); e.hasNext(); ) {
-                            var n = e.next(), i = this.nodes.addNode(n.getCoordinate());
-                            i.setLabel(t, n.getLabel().getLocation(t));
-                        }
-                    },
-                    labelIntersectionNodes: function(t) {
-                        for (var e = this.arg[t].getEdgeIterator(); e.hasNext(); ) for (var n = e.next(), i = n.getLabel().getLocation(t), r = n.getEdgeIntersectionList().iterator(); r.hasNext(); ) {
-                            var s = r.next(), o = this.nodes.find(s.coord);
-                            o.getLabel().isNull(t) && (i === L.BOUNDARY ? o.setLabelBoundary(t) : o.setLabel(t, L.INTERIOR));
-                        }
-                    },
-                    labelIsolatedNode: function(t, e) {
-                        var n = this.ptLocator.locate(t.getCoordinate(), this.arg[e].getGeometry());
-                        t.getLabel().setAllLocations(e, n);
-                    },
-                    computeIntersectionNodes: function(t) {
-                        for (var e = this.arg[t].getEdgeIterator(); e.hasNext(); ) for (var n = e.next(), i = n.getLabel().getLocation(t), r = n.getEdgeIntersectionList().iterator(); r.hasNext(); ) {
-                            var s = r.next(), o = this.nodes.addNode(s.coord);
-                            i === L.BOUNDARY ? o.setLabelBoundary(t) : o.getLabel().isNull(t) && o.setLabel(t, L.INTERIOR);
-                        }
-                    },
-                    labelIsolatedNodes: function() {
-                        for (var t = this.nodes.iterator(); t.hasNext(); ) {
-                            var e = t.next(), n = e.getLabel();
-                            f.isTrue(n.getGeometryCount() > 0, "node with empty label found"), e.isIsolated() && (n.isNull(0) ? this.labelIsolatedNode(e, 0) : this.labelIsolatedNode(e, 1));
-                        }
-                    },
-                    updateIM: function(t) {
-                        for (var e = this.isolatedEdges.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            n.updateIM(t);
-                        }
-                        for (var i = this.nodes.iterator(); i.hasNext(); ) {
-                            var r = i.next();
-                            r.updateIM(t), r.updateIMFromEdges(t);
-                        }
-                    },
-                    computeDisjointIM: function(t) {
-                        var e = this.arg[0].getGeometry();
-                        e.isEmpty() || (t.set(L.INTERIOR, L.EXTERIOR, e.getDimension()), t.set(L.BOUNDARY, L.EXTERIOR, e.getBoundaryDimension()));
-                        var n = this.arg[1].getGeometry();
-                        n.isEmpty() || (t.set(L.EXTERIOR, L.INTERIOR, n.getDimension()), t.set(L.EXTERIOR, L.BOUNDARY, n.getBoundaryDimension()));
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Ur;
-                    }
-                }), e(Xr.prototype, {
-                    isContainedInBoundary: function(t) {
-                        if (t instanceof Tt) return !1;
-                        if (t instanceof Lt) return this.isPointContainedInBoundary(t);
-                        if (t instanceof St) return this.isLineStringContainedInBoundary(t);
-                        for (var e = 0; e < t.getNumGeometries(); e++) {
-                            var n = t.getGeometryN(e);
-                            if (!this.isContainedInBoundary(n)) return !1;
-                        }
-                        return !0;
-                    },
-                    isLineSegmentContainedInBoundary: function(t, e) {
-                        if (t.equals(e)) return this.isPointContainedInBoundary(t);
-                        if (t.x === e.x) {
-                            if (t.x === this.rectEnv.getMinX() || t.x === this.rectEnv.getMaxX()) return !0;
-                        } else if (t.y === e.y && (t.y === this.rectEnv.getMinY() || t.y === this.rectEnv.getMaxY())) return !0;
-                        return !1;
-                    },
-                    isLineStringContainedInBoundary: function(t) {
-                        for (var e = t.getCoordinateSequence(), n = new g(), i = new g(), r = 0; r < e.size() - 1; r++) if (e.getCoordinate(r, n), 
-                        e.getCoordinate(r + 1, i), !this.isLineSegmentContainedInBoundary(n, i)) return !1;
-                        return !0;
-                    },
-                    isPointContainedInBoundary: function() {
-                        if (arguments[0] instanceof Lt) {
-                            var t = arguments[0];
-                            return this.isPointContainedInBoundary(t.getCoordinate());
-                        }
-                        if (arguments[0] instanceof g) {
-                            var e = arguments[0];
-                            return e.x === this.rectEnv.getMinX() || e.x === this.rectEnv.getMaxX() || e.y === this.rectEnv.getMinY() || e.y === this.rectEnv.getMaxY();
-                        }
-                    },
-                    contains: function(t) {
-                        return this.rectEnv.contains(t.getEnvelopeInternal()) ? !this.isContainedInBoundary(t) : !1;
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Xr;
-                    }
-                }), Xr.contains = function(t, e) {
-                    var n = new Xr(t);
-                    return n.contains(e);
-                }, e(Hr.prototype, {
-                    intersects: function(t, e) {
-                        var n = new C(t, e);
-                        if (!this.rectEnv.intersects(n)) return !1;
-                        if (this.rectEnv.intersects(t)) return !0;
-                        if (this.rectEnv.intersects(e)) return !0;
-                        if (t.compareTo(e) > 0) {
-                            var i = t;
-                            t = e, e = i;
-                        }
-                        var r = !1;
-                        return e.y > t.y && (r = !0), r ? this.li.computeIntersection(t, e, this.diagDown0, this.diagDown1) : this.li.computeIntersection(t, e, this.diagUp0, this.diagUp1), 
-                        !!this.li.hasIntersection();
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Hr;
-                    }
-                }), e(Wr.prototype, {
-                    applyTo: function(t) {
-                        for (var e = 0; e < t.getNumGeometries() && !this._isDone; e++) {
-                            var n = t.getGeometryN(e);
-                            if (n instanceof ft) this.applyTo(n); else if (this.visit(n), this.isDone()) return this._isDone = !0, 
-                            null;
-                        }
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Wr;
-                    }
-                }), e(jr.prototype, {
-                    intersects: function(t) {
-                        if (!this.rectEnv.intersects(t.getEnvelopeInternal())) return !1;
-                        var e = new Kr(this.rectEnv);
-                        if (e.applyTo(t), e.intersects()) return !0;
-                        var n = new Zr(this.rectangle);
-                        if (n.applyTo(t), n.containsPoint()) return !0;
-                        var i = new Qr(this.rectangle);
-                        return i.applyTo(t), !!i.intersects();
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return jr;
-                    }
-                }), jr.intersects = function(t, e) {
-                    var n = new jr(t);
-                    return n.intersects(e);
-                }, h(Kr, Wr), e(Kr.prototype, {
-                    isDone: function() {
-                        return this._intersects === !0;
-                    },
-                    visit: function(t) {
-                        var e = t.getEnvelopeInternal();
-                        return this.rectEnv.intersects(e) ? this.rectEnv.contains(e) ? (this._intersects = !0, 
-                        null) : e.getMinX() >= this.rectEnv.getMinX() && e.getMaxX() <= this.rectEnv.getMaxX() ? (this._intersects = !0, 
-                        null) : e.getMinY() >= this.rectEnv.getMinY() && e.getMaxY() <= this.rectEnv.getMaxY() ? (this._intersects = !0, 
-                        null) : void 0 : null;
-                    },
-                    intersects: function() {
-                        return this._intersects;
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Kr;
-                    }
-                }), h(Zr, Wr), e(Zr.prototype, {
-                    isDone: function() {
-                        return this._containsPoint === !0;
-                    },
-                    visit: function(t) {
-                        if (!(t instanceof Tt)) return null;
-                        var e = t.getEnvelopeInternal();
-                        if (!this.rectEnv.intersects(e)) return null;
-                        for (var n = new g(), i = 0; 4 > i; i++) if (this.rectSeq.getCoordinate(i, n), e.contains(n) && Tn.containsPointInPolygon(n, t)) return this._containsPoint = !0, 
-                        null;
-                    },
-                    containsPoint: function() {
-                        return this._containsPoint;
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Zr;
-                    }
-                }), h(Qr, Wr), e(Qr.prototype, {
-                    intersects: function() {
-                        return this.hasIntersection;
-                    },
-                    isDone: function() {
-                        return this.hasIntersection === !0;
-                    },
-                    visit: function(t) {
-                        var e = t.getEnvelopeInternal();
-                        if (!this.rectEnv.intersects(e)) return null;
-                        var n = kn.getLines(t);
-                        this.checkIntersectionWithLineStrings(n);
-                    },
-                    checkIntersectionWithLineStrings: function(t) {
-                        for (var e = t.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            if (this.checkIntersectionWithSegments(n), this.hasIntersection) return null;
-                        }
-                    },
-                    checkIntersectionWithSegments: function(t) {
-                        for (var e = t.getCoordinateSequence(), n = 1; n < e.size(); n++) if (e.getCoordinate(n - 1, this.p0), 
-                        e.getCoordinate(n, this.p1), this.rectIntersector.intersects(this.p0, this.p1)) return this.hasIntersection = !0, 
-                        null;
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Qr;
-                    }
-                }), h(Jr, ti), e(Jr.prototype, {
-                    getIntersectionMatrix: function() {
-                        return this._relate.computeIM();
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return Jr;
-                    }
-                }), Jr.covers = function(t, e) {
-                    return t.getEnvelopeInternal().covers(e.getEnvelopeInternal()) ? t.isRectangle() ? !0 : Jr.relate(t, e).isCovers() : !1;
-                }, Jr.intersects = function(t, e) {
-                    return t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) ? t.isRectangle() ? jr.intersects(t, e) : e.isRectangle() ? jr.intersects(e, t) : Jr.relate(t, e).isIntersects() : !1;
-                }, Jr.touches = function(t, e) {
-                    return t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) ? Jr.relate(t, e).isTouches(t.getDimension(), e.getDimension()) : !1;
-                }, Jr.within = function(t, e) {
-                    return e.contains(t);
-                }, Jr.coveredBy = function(t, e) {
-                    return Jr.covers(e, t);
-                }, Jr.relate = function() {
-                    if (2 === arguments.length) {
-                        var t = arguments[0], e = arguments[1], n = new Jr(t, e), i = n.getIntersectionMatrix();
-                        return i;
-                    }
-                    if (3 === arguments.length) {
-                        if ("string" == typeof arguments[2] && arguments[0] instanceof B && arguments[1] instanceof B) {
-                            var r = arguments[0], s = arguments[1], o = arguments[2];
-                            return Jr.relateWithCheck(r, s).matches(o);
-                        }
-                        if (R(arguments[2], V) && arguments[0] instanceof B && arguments[1] instanceof B) {
-                            var a = arguments[0], u = arguments[1], l = arguments[2], n = new Jr(a, u, l), i = n.getIntersectionMatrix();
-                            return i;
-                        }
-                    }
-                }, Jr.overlaps = function(t, e) {
-                    return t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) ? Jr.relate(t, e).isOverlaps(t.getDimension(), e.getDimension()) : !1;
-                }, Jr.disjoint = function(t, e) {
-                    return !t.intersects(e);
-                }, Jr.relateWithCheck = function(t, e) {
-                    return t.checkNotGeometryCollection(t), t.checkNotGeometryCollection(e), Jr.relate(t, e);
-                }, Jr.crosses = function(t, e) {
-                    return t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) ? Jr.relate(t, e).isCrosses(t.getDimension(), e.getDimension()) : !1;
-                }, Jr.contains = function(t, e) {
-                    return t.getEnvelopeInternal().contains(e.getEnvelopeInternal()) ? t.isRectangle() ? Xr.contains(t, e) : Jr.relate(t, e).isContains() : !1;
-                };
-                var Po = Object.freeze({
-                    RelateOp: Jr
-                });
-                e($r.prototype, {
-                    extractElements: function(t, e) {
-                        if (null === t) return null;
-                        for (var n = 0; n < t.getNumGeometries(); n++) {
-                            var i = t.getGeometryN(n);
-                            this.skipEmpty && i.isEmpty() || e.add(i);
-                        }
-                    },
-                    combine: function() {
-                        for (var t = new I(), e = this.inputGeoms.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            this.extractElements(n, t);
-                        }
-                        return 0 === t.size() ? null !== this.geomFactory ? this.geomFactory.createGeometryCollection(null) : null : this.geomFactory.buildGeometry(t);
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return $r;
-                    }
-                }), $r.combine = function() {
-                    if (1 === arguments.length) {
-                        var t = arguments[0], e = new $r(t);
-                        return e.combine();
-                    }
-                    if (2 === arguments.length) {
-                        var n = arguments[0], i = arguments[1], e = new $r($r.createList(n, i));
-                        return e.combine();
-                    }
-                    if (3 === arguments.length) {
-                        var r = arguments[0], s = arguments[1], o = arguments[2], e = new $r($r.createList(r, s, o));
-                        return e.combine();
-                    }
-                }, $r.extractFactory = function(t) {
-                    return t.isEmpty() ? null : t.iterator().next().getFactory();
-                }, $r.createList = function() {
-                    if (2 === arguments.length) {
-                        var t = arguments[0], e = arguments[1], n = new I();
-                        return n.add(t), n.add(e), n;
-                    }
-                    if (3 === arguments.length) {
-                        var i = arguments[0], r = arguments[1], s = arguments[2], n = new I();
-                        return n.add(i), n.add(r), n.add(s), n;
-                    }
-                }, e(ts.prototype, {
-                    union: function() {
-                        for (var t = new Te(), e = new at(), n = 0; n < this.pointGeom.getNumGeometries(); n++) {
-                            var i = this.pointGeom.getGeometryN(n), r = i.getCoordinate(), s = t.locate(r, this.otherGeom);
-                            s === L.EXTERIOR && e.add(r);
-                        }
-                        if (0 === e.size()) return this.otherGeom;
-                        var o = null, a = H.toCoordinateArray(e);
-                        return o = 1 === a.length ? this.geomFact.createPoint(a[0]) : this.geomFact.createMultiPointFromCoords(a), 
-                        $r.combine(o, this.otherGeom);
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return ts;
-                    }
-                }), ts.union = function(t, e) {
-                    var n = new ts(t, e);
-                    return n.union();
-                }, e(es.prototype, {
-                    filter: function(t) {
-                        -1 !== this.sortIndex && t.getSortIndex() !== this.sortIndex || this.comps.add(t);
-                    },
-                    interfaces_: function() {
-                        return [ ht ];
-                    },
-                    getClass: function() {
-                        return es;
-                    }
-                }), es.extract = function() {
-                    if (2 === arguments.length) {
-                        var t = arguments[0], e = arguments[1];
-                        return es.extract(t, e, new I());
-                    }
-                    if (3 === arguments.length) {
-                        var n = arguments[0], i = arguments[1], r = arguments[2];
-                        return n.getSortIndex() === i ? r.add(n) : n instanceof ft && n.apply(new es(i, r)), 
-                        r;
-                    }
-                }, e(ns.prototype, {
-                    reduceToGeometries: function(t) {
-                        for (var e = new I(), n = t.iterator(); n.hasNext(); ) {
-                            var i = n.next(), r = null;
-                            R(i, y) ? r = this.unionTree(i) : i instanceof B && (r = i), e.add(r);
-                        }
-                        return e;
-                    },
-                    extractByEnvelope: function(t, e, n) {
-                        for (var i = new I(), r = 0; r < e.getNumGeometries(); r++) {
-                            var s = e.getGeometryN(r);
-                            s.getEnvelopeInternal().intersects(t) ? i.add(s) : n.add(s);
-                        }
-                        return this.geomFactory.buildGeometry(i);
-                    },
-                    unionOptimized: function(t, e) {
-                        var n = t.getEnvelopeInternal(), i = e.getEnvelopeInternal();
-                        if (!n.intersects(i)) {
-                            var r = $r.combine(t, e);
-                            return r;
-                        }
-                        if (t.getNumGeometries() <= 1 && e.getNumGeometries() <= 1) return this.unionActual(t, e);
-                        var s = n.intersection(i);
-                        return this.unionUsingEnvelopeIntersection(t, e, s);
-                    },
-                    union: function() {
-                        if (null === this.inputPolys) throw new IllegalStateException("union() method cannot be called twice");
-                        if (this.inputPolys.isEmpty()) return null;
-                        this.geomFactory = this.inputPolys.iterator().next().getFactory();
-                        for (var t = new ke(ns.STRTREE_NODE_CAPACITY), e = this.inputPolys.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            t.insert(n.getEnvelopeInternal(), n);
-                        }
-                        this.inputPolys = null;
-                        var i = t.itemsTree(), r = this.unionTree(i);
-                        return r;
-                    },
-                    binaryUnion: function() {
-                        if (1 === arguments.length) {
-                            var t = arguments[0];
-                            return this.binaryUnion(t, 0, t.size());
-                        }
-                        if (3 === arguments.length) {
-                            var e = arguments[0], n = arguments[1], i = arguments[2];
-                            if (1 >= i - n) {
-                                var r = ns.getGeometry(e, n);
-                                return this.unionSafe(r, null);
-                            }
-                            if (i - n === 2) return this.unionSafe(ns.getGeometry(e, n), ns.getGeometry(e, n + 1));
-                            var s = Math.trunc((i + n) / 2), r = this.binaryUnion(e, n, s), o = this.binaryUnion(e, s, i);
-                            return this.unionSafe(r, o);
-                        }
-                    },
-                    repeatedUnion: function(t) {
-                        for (var e = null, n = t.iterator(); n.hasNext(); ) {
-                            var i = n.next();
-                            e = null === e ? i.copy() : e.union(i);
-                        }
-                        return e;
-                    },
-                    unionSafe: function(t, e) {
-                        return null === t && null === e ? null : null === t ? e.copy() : null === e ? t.copy() : this.unionOptimized(t, e);
-                    },
-                    unionActual: function(t, e) {
-                        return ns.restrictToPolygons(t.union(e));
-                    },
-                    unionTree: function(t) {
-                        var e = this.reduceToGeometries(t), n = this.binaryUnion(e);
-                        return n;
-                    },
-                    unionUsingEnvelopeIntersection: function(t, e, n) {
-                        var i = new I(), r = this.extractByEnvelope(n, t, i), s = this.extractByEnvelope(n, e, i), o = this.unionActual(r, s);
-                        i.add(o);
-                        var a = $r.combine(i);
-                        return a;
-                    },
-                    bufferUnion: function() {
-                        if (1 === arguments.length) {
-                            var t = arguments[0], e = t.get(0).getFactory(), n = e.buildGeometry(t), i = n.buffer(0);
-                            return i;
-                        }
-                        if (2 === arguments.length) {
-                            var r = arguments[0], s = arguments[1], e = r.getFactory(), n = e.createGeometryCollection([ r, s ]), i = n.buffer(0);
-                            return i;
-                        }
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return ns;
-                    }
-                }), ns.restrictToPolygons = function(t) {
-                    if (R(t, Rt)) return t;
-                    var e = pr.getPolygons(t);
-                    return 1 === e.size() ? e.get(0) : t.getFactory().createMultiPolygon(ie.toPolygonArray(e));
-                }, ns.getGeometry = function(t, e) {
-                    return e >= t.size() ? null : t.get(e);
-                }, ns.union = function(t) {
-                    var e = new ns(t);
-                    return e.union();
-                }, ns.STRTREE_NODE_CAPACITY = 4, e(is.prototype, {
-                    unionNoOpt: function(t) {
-                        var e = this.geomFact.createPoint();
-                        return si.overlayOp(t, e, ii.UNION);
-                    },
-                    unionWithNull: function(t, e) {
-                        return null === t && null === e ? null : null === e ? t : null === t ? e : t.union(e);
-                    },
-                    extract: function() {
-                        if (R(arguments[0], v)) for (var t = arguments[0], e = t.iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            this.extract(n);
-                        } else if (arguments[0] instanceof B) {
-                            var i = arguments[0];
-                            null === this.geomFact && (this.geomFact = i.getFactory()), es.extract(i, B.SORTINDEX_POLYGON, this.polygons), 
-                            es.extract(i, B.SORTINDEX_LINESTRING, this.lines), es.extract(i, B.SORTINDEX_POINT, this.points);
-                        }
-                    },
-                    union: function Xo() {
-                        if (null === this.geomFact) return null;
-                        var t = null;
-                        if (this.points.size() > 0) {
-                            var e = this.geomFact.buildGeometry(this.points);
-                            t = this.unionNoOpt(e);
-                        }
-                        var n = null;
-                        if (this.lines.size() > 0) {
-                            var i = this.geomFact.buildGeometry(this.lines);
-                            n = this.unionNoOpt(i);
-                        }
-                        var r = null;
-                        this.polygons.size() > 0 && (r = ns.union(this.polygons));
-                        var s = this.unionWithNull(n, r), Xo = null;
-                        return Xo = null === t ? s : null === s ? t : ts.union(t, s), null === Xo ? this.geomFact.createGeometryCollection() : Xo;
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return is;
-                    }
-                }), is.union = function() {
-                    if (1 === arguments.length) {
-                        if (R(arguments[0], v)) {
-                            var t = arguments[0], e = new is(t);
-                            return e.union();
-                        }
-                        if (arguments[0] instanceof B) {
-                            var n = arguments[0], e = new is(n);
-                            return e.union();
-                        }
-                    } else if (2 === arguments.length) {
-                        var i = arguments[0], r = arguments[1], e = new is(i, r);
-                        return e.union();
-                    }
-                };
-                var bo = Object.freeze({
-                    UnaryUnionOp: is
-                });
-                e(rs.prototype, {
-                    visitInteriorRing: function(t, e) {
-                        var n = t.getCoordinates(), i = n[0], r = rs.findDifferentPoint(n, i), s = e.findEdgeInSameDirection(i, r), o = e.findEdgeEnd(s), a = null;
-                        o.getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR ? a = o : o.getSym().getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR && (a = o.getSym()), 
-                        f.isTrue(null !== a, "unable to find dirEdge with Interior on RHS"), this.visitLinkedDirectedEdges(a);
-                    },
-                    visitShellInteriors: function(t, e) {
-                        if (t instanceof Tt) {
-                            var n = t;
-                            this.visitInteriorRing(n.getExteriorRing(), e);
-                        }
-                        if (t instanceof Ot) for (var i = t, r = 0; r < i.getNumGeometries(); r++) {
-                            var n = i.getGeometryN(r);
-                            this.visitInteriorRing(n.getExteriorRing(), e);
-                        }
-                    },
-                    getCoordinate: function() {
-                        return this.disconnectedRingcoord;
-                    },
-                    setInteriorEdgesInResult: function(t) {
-                        for (var e = t.getEdgeEnds().iterator(); e.hasNext(); ) {
-                            var n = e.next();
-                            n.getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR && n.setInResult(!0);
-                        }
-                    },
-                    visitLinkedDirectedEdges: function(t) {
-                        var e = t, n = t;
-                        do f.isTrue(null !== n, "found null Directed Edge"), n.setVisited(!0), n = n.getNext(); while (n !== e);
-                    },
-                    buildEdgeRings: function(t) {
-                        for (var e = new I(), n = t.iterator(); n.hasNext(); ) {
-                            var i = n.next();
-                            if (i.isInResult() && null === i.getEdgeRing()) {
-                                var r = new vn(i, this.geometryFactory);
-                                r.linkDirectedEdgesForMinimalEdgeRings();
-                                var s = r.buildMinimalRings();
-                                e.addAll(s);
-                            }
-                        }
-                        return e;
-                    },
-                    hasUnvisitedShellEdge: function(t) {
-                        for (var e = 0; e < t.size(); e++) {
-                            var n = t.get(e);
-                            if (!n.isHole()) {
-                                var i = n.getEdges(), r = i.get(0);
-                                if (r.getLabel().getLocation(0, cn.RIGHT) === L.INTERIOR) for (var s = 0; s < i.size(); s++) if (r = i.get(s), 
-                                !r.isVisited()) return this.disconnectedRingcoord = r.getCoordinate(), !0;
-                            }
-                        }
-                        return !1;
-                    },
-                    isInteriorsConnected: function() {
-                        var t = new I();
-                        this.geomGraph.computeSplitEdges(t);
-                        var e = new Cn(new On());
-                        e.addEdges(t), this.setInteriorEdgesInResult(e), e.linkResultDirectedEdges();
-                        var n = this.buildEdgeRings(e.getEdgeEnds());
-                        return this.visitShellInteriors(this.geomGraph.getGeometry(), e), !this.hasUnvisitedShellEdge(n);
-                    },
-                    interfaces_: function() {
-                        return [];
-                    },
-                    getClass: function() {
-                        return rs;
-                    }
-                }), rs.findDifferentPoint = function(t, e) {
-                    for (var n = 0; n < t.length; n++) if (!t[n].equals(e)) return t[n];
-                    return null;
-                }, e(ss.prototype, {
+                }), e(zr.prototype, {
                     insertEdgeEnds: function(t) {
                         for (var e = t.iterator(); e.hasNext(); ) {
                             var n = e.next();
@@ -14862,7 +14049,7 @@
                     },
                     build: function(t) {
                         this.computeIntersectionNodes(t, 0), this.copyNodesAndLabels(t, 0);
-                        var e = new Br(), n = e.computeEdgeEnds(t.getEdgeIterator());
+                        var e = new Ar(), n = e.computeEdgeEnds(t.getEdgeIterator());
                         this.insertEdgeEnds(n);
                     },
                     computeIntersectionNodes: function(t, e) {
@@ -14875,9 +14062,9 @@
                         return [];
                     },
                     getClass: function() {
-                        return ss;
+                        return zr;
                     }
-                }), e(os.prototype, {
+                }), e(Vr.prototype, {
                     isNodeEdgeAreaLabelsConsistent: function() {
                         for (var t = this.nodeGraph.getNodeIterator(); t.hasNext(); ) {
                             var e = t.next();
@@ -14906,9 +14093,9 @@
                         return [];
                     },
                     getClass: function() {
-                        return os;
+                        return Vr;
                     }
-                }), e(as.prototype, {
+                }), e(kr.prototype, {
                     buildIndex: function() {
                         this.index = new ke();
                         for (var t = 0; t < this.rings.size(); t++) {
@@ -14924,7 +14111,7 @@
                         for (var t = 0; t < this.rings.size(); t++) for (var e = this.rings.get(t), n = e.getCoordinates(), i = this.index.query(e.getEnvelopeInternal()), r = 0; r < i.size(); r++) {
                             var s = i.get(r), o = s.getCoordinates();
                             if (e !== s && e.getEnvelopeInternal().intersects(s.getEnvelopeInternal())) {
-                                var a = ls.findPtNotNode(n, s, this.graph);
+                                var a = Ur.findPtNotNode(n, s, this.graph);
                                 if (null !== a) {
                                     var u = he.isPointInRing(a, o);
                                     if (u) return this.nestedPt = a, !1;
@@ -14940,14 +14127,14 @@
                         return [];
                     },
                     getClass: function() {
-                        return as;
+                        return kr;
                     }
-                }), e(us.prototype, {
+                }), e(Yr.prototype, {
                     getErrorType: function() {
                         return this.errorType;
                     },
                     getMessage: function() {
-                        return us.errMsg[this.errorType];
+                        return Yr.errMsg[this.errorType];
                     },
                     getCoordinate: function() {
                         return this.pt;
@@ -14960,16 +14147,16 @@
                         return [];
                     },
                     getClass: function() {
-                        return us;
+                        return Yr;
                     }
-                }), us.ERROR = 0, us.REPEATED_POINT = 1, us.HOLE_OUTSIDE_SHELL = 2, us.NESTED_HOLES = 3, 
-                us.DISCONNECTED_INTERIOR = 4, us.SELF_INTERSECTION = 5, us.RING_SELF_INTERSECTION = 6, 
-                us.NESTED_SHELLS = 7, us.DUPLICATE_RINGS = 8, us.TOO_FEW_POINTS = 9, us.INVALID_COORDINATE = 10, 
-                us.RING_NOT_CLOSED = 11, us.errMsg = [ "Topology Validation Error", "Repeated Point", "Hole lies outside shell", "Holes are nested", "Interior is disconnected", "Self-intersection", "Ring Self-intersection", "Nested shells", "Duplicate Rings", "Too few distinct points in geometry component", "Invalid Coordinate", "Ring is not closed" ], 
-                e(ls.prototype, {
+                }), Yr.ERROR = 0, Yr.REPEATED_POINT = 1, Yr.HOLE_OUTSIDE_SHELL = 2, Yr.NESTED_HOLES = 3, 
+                Yr.DISCONNECTED_INTERIOR = 4, Yr.SELF_INTERSECTION = 5, Yr.RING_SELF_INTERSECTION = 6, 
+                Yr.NESTED_SHELLS = 7, Yr.DUPLICATE_RINGS = 8, Yr.TOO_FEW_POINTS = 9, Yr.INVALID_COORDINATE = 10, 
+                Yr.RING_NOT_CLOSED = 11, Yr.errMsg = [ "Topology Validation Error", "Repeated Point", "Hole lies outside shell", "Holes are nested", "Interior is disconnected", "Self-intersection", "Ring Self-intersection", "Nested shells", "Duplicate Rings", "Too few distinct points in geometry component", "Invalid Coordinate", "Ring is not closed" ], 
+                e(Ur.prototype, {
                     checkInvalidCoordinates: function() {
                         if (arguments[0] instanceof Array) {
-                            for (var t = arguments[0], e = 0; e < t.length; e++) if (!ls.isValid(t[e])) return this.validErr = new us(us.INVALID_COORDINATE, t[e]), 
+                            for (var t = arguments[0], e = 0; e < t.length; e++) if (!Ur.isValid(t[e])) return this.validErr = new Yr(Yr.INVALID_COORDINATE, t[e]), 
                             null;
                         } else if (arguments[0] instanceof Tt) {
                             var n = arguments[0];
@@ -14979,28 +14166,28 @@
                         }
                     },
                     checkHolesNotNested: function(t, e) {
-                        for (var n = new as(e), i = 0; i < t.getNumInteriorRing(); i++) {
+                        for (var n = new kr(e), i = 0; i < t.getNumInteriorRing(); i++) {
                             var r = t.getInteriorRingN(i);
                             n.add(r);
                         }
                         var s = n.isNonNested();
-                        s || (this.validErr = new us(us.NESTED_HOLES, n.getNestedPoint()));
+                        s || (this.validErr = new Yr(Yr.NESTED_HOLES, n.getNestedPoint()));
                     },
                     checkConsistentArea: function(t) {
-                        var e = new os(t), n = e.isNodeConsistentArea();
-                        return n ? void (e.hasDuplicateRings() && (this.validErr = new us(us.DUPLICATE_RINGS, e.getInvalidPoint()))) : (this.validErr = new us(us.SELF_INTERSECTION, e.getInvalidPoint()), 
+                        var e = new Vr(t), n = e.isNodeConsistentArea();
+                        return n ? void (e.hasDuplicateRings() && (this.validErr = new Yr(Yr.DUPLICATE_RINGS, e.getInvalidPoint()))) : (this.validErr = new Yr(Yr.SELF_INTERSECTION, e.getInvalidPoint()), 
                         null);
                     },
                     isValid: function() {
                         return this.checkValid(this.parentGeometry), null === this.validErr;
                     },
                     checkShellInsideHole: function(t, e, n) {
-                        var i = t.getCoordinates(), r = e.getCoordinates(), s = ls.findPtNotNode(i, e, n);
+                        var i = t.getCoordinates(), r = e.getCoordinates(), s = Ur.findPtNotNode(i, e, n);
                         if (null !== s) {
                             var o = he.isPointInRing(s, r);
                             if (!o) return s;
                         }
-                        var a = ls.findPtNotNode(r, t, n);
+                        var a = Ur.findPtNotNode(r, t, n);
                         if (null !== a) {
                             var u = he.isPointInRing(a, i);
                             return u ? a : null;
@@ -15014,14 +14201,14 @@
                         }
                     },
                     checkConnectedInteriors: function(t) {
-                        var e = new rs(t);
-                        e.isInteriorsConnected() || (this.validErr = new us(us.DISCONNECTED_INTERIOR, e.getCoordinate()));
+                        var e = new Dr(t);
+                        e.isInteriorsConnected() || (this.validErr = new Yr(Yr.DISCONNECTED_INTERIOR, e.getCoordinate()));
                     },
                     checkNoSelfIntersectingRing: function(t) {
                         for (var e = new at(), n = !0, i = t.iterator(); i.hasNext(); ) {
                             var r = i.next();
                             if (n) n = !1; else {
-                                if (e.contains(r.coord)) return this.validErr = new us(us.RING_SELF_INTERSECTION, r.coord), 
+                                if (e.contains(r.coord)) return this.validErr = new Yr(Yr.RING_SELF_INTERSECTION, r.coord), 
                                 null;
                                 e.add(r.coord);
                             }
@@ -15029,15 +14216,15 @@
                     },
                     checkHolesInShell: function(t, e) {
                         for (var n = t.getExteriorRing(), i = new Ii(n), r = 0; r < t.getNumInteriorRing(); r++) {
-                            var s = t.getInteriorRingN(r), o = ls.findPtNotNode(s.getCoordinates(), n, e);
+                            var s = t.getInteriorRingN(r), o = Ur.findPtNotNode(s.getCoordinates(), n, e);
                             if (null === o) return null;
                             var a = !i.isInside(o);
-                            if (a) return this.validErr = new us(us.HOLE_OUTSIDE_SHELL, o), null;
+                            if (a) return this.validErr = new Yr(Yr.HOLE_OUTSIDE_SHELL, o), null;
                         }
                     },
                     checkTooFewPoints: function(t) {
-                        return t.hasTooFewPoints() ? (this.validErr = new us(us.TOO_FEW_POINTS, t.getInvalidPoint()), 
-                        null) : void 0;
+                        if (t.hasTooFewPoints()) return this.validErr = new Yr(Yr.TOO_FEW_POINTS, t.getInvalidPoint()), 
+                        null;
                     },
                     getValidationError: function() {
                         return this.checkValid(this.parentGeometry), this.validErr;
@@ -15111,17 +14298,17 @@
                         this.isSelfTouchingRingFormingHoleValid = t;
                     },
                     checkShellNotNested: function(t, e, n) {
-                        var i = t.getCoordinates(), r = e.getExteriorRing(), s = r.getCoordinates(), o = ls.findPtNotNode(i, r, n);
+                        var i = t.getCoordinates(), r = e.getExteriorRing(), s = r.getCoordinates(), o = Ur.findPtNotNode(i, r, n);
                         if (null === o) return null;
                         var a = he.isPointInRing(o, s);
                         if (!a) return null;
-                        if (e.getNumInteriorRing() <= 0) return this.validErr = new us(us.NESTED_SHELLS, o), 
+                        if (e.getNumInteriorRing() <= 0) return this.validErr = new Yr(Yr.NESTED_SHELLS, o), 
                         null;
                         for (var u = null, l = 0; l < e.getNumInteriorRing(); l++) {
                             var h = e.getInteriorRingN(l);
                             if (u = this.checkShellInsideHole(t, h, n), null === u) return null;
                         }
-                        this.validErr = new us(us.NESTED_SHELLS, u);
+                        this.validErr = new Yr(Yr.NESTED_SHELLS, u);
                     },
                     checkClosedRings: function(t) {
                         if (this.checkClosedRing(t.getExteriorRing()), null !== this.validErr) return null;
@@ -15131,7 +14318,7 @@
                     checkClosedRing: function(t) {
                         if (!t.isClosed()) {
                             var e = null;
-                            t.getNumPoints() >= 1 && (e = t.getCoordinateN(0)), this.validErr = new us(us.RING_NOT_CLOSED, e);
+                            t.getNumPoints() >= 1 && (e = t.getCoordinateN(0)), this.validErr = new Yr(Yr.RING_NOT_CLOSED, e);
                         }
                     },
                     checkShellsNotNested: function(t, e) {
@@ -15144,27 +14331,995 @@
                         return [];
                     },
                     getClass: function() {
-                        return ls;
+                        return Ur;
                     }
-                }), ls.findPtNotNode = function(t, e, n) {
+                }), Ur.findPtNotNode = function(t, e, n) {
                     for (var i = n.findEdge(e), r = i.getEdgeIntersectionList(), s = 0; s < t.length; s++) {
                         var o = t[s];
                         if (!r.isIntersection(o)) return o;
                     }
                     return null;
-                }, ls.isValid = function() {
+                }, Ur.isValid = function() {
                     if (arguments[0] instanceof B) {
-                        var t = arguments[0], e = new ls(t);
+                        var t = arguments[0], e = new Ur(t);
                         return e.isValid();
                     }
                     if (arguments[0] instanceof g) {
                         var n = arguments[0];
-                        return r.isNaN(n.x) ? !1 : r.isInfinite(n.x) ? !1 : r.isNaN(n.y) ? !1 : !r.isInfinite(n.y);
+                        return !r.isNaN(n.x) && (!r.isInfinite(n.x) && (!r.isNaN(n.y) && !r.isInfinite(n.y)));
+                    }
+                }, e(Xr.prototype, {
+                    isIncluded: function() {
+                        return this._isIncluded;
+                    },
+                    getCoordinates: function() {
+                        if (null === this.ringPts) {
+                            for (var t = new N(), e = this.deList.iterator(); e.hasNext(); ) {
+                                var n = e.next(), i = n.getEdge();
+                                Xr.addEdge(i.getLine().getCoordinates(), n.getEdgeDirection(), t);
+                            }
+                            this.ringPts = t.toCoordinateArray();
+                        }
+                        return this.ringPts;
+                    },
+                    isIncludedSet: function() {
+                        return this._isIncludedSet;
+                    },
+                    isValid: function() {
+                        return this.getCoordinates(), !(this.ringPts.length <= 3) && (this.getRing(), Ur.isValid(this.ring));
+                    },
+                    build: function(t) {
+                        var e = t;
+                        do {
+                            this.add(e), e.setRing(this), e = e.getNext(), f.isTrue(null !== e, "found null DE in ring"), 
+                            f.isTrue(e === t || !e.isInRing(), "found DE already in ring");
+                        } while (e !== t);
+                    },
+                    isOuterHole: function() {
+                        return !!this._isHole && !this.hasShell();
+                    },
+                    getPolygon: function() {
+                        var t = null;
+                        if (null !== this.holes) {
+                            t = new Array(this.holes.size()).fill(null);
+                            for (var e = 0; e < this.holes.size(); e++) t[e] = this.holes.get(e);
+                        }
+                        var n = this.factory.createPolygon(this.ring, t);
+                        return n;
+                    },
+                    isHole: function() {
+                        return this._isHole;
+                    },
+                    isProcessed: function() {
+                        return this._isProcessed;
+                    },
+                    addHole: function() {
+                        if (arguments[0] instanceof bt) {
+                            var t = arguments[0];
+                            null === this.holes && (this.holes = new I()), this.holes.add(t);
+                        } else if (arguments[0] instanceof Xr) {
+                            var e = arguments[0];
+                            e.setShell(this);
+                            var n = e.getRing();
+                            null === this.holes && (this.holes = new I()), this.holes.add(n);
+                        }
+                    },
+                    setIncluded: function(t) {
+                        this._isIncluded = t, this._isIncludedSet = !0;
+                    },
+                    getOuterHole: function() {
+                        if (this.isHole()) return null;
+                        for (var t = 0; t < this.deList.size(); t++) {
+                            var e = this.deList.get(t), n = e.getSym().getRing();
+                            if (n.isOuterHole()) return n;
+                        }
+                        return null;
+                    },
+                    computeHole: function() {
+                        var t = this.getRing();
+                        this._isHole = he.isCCW(t.getCoordinates());
+                    },
+                    hasShell: function() {
+                        return null !== this.shell;
+                    },
+                    isOuterShell: function() {
+                        return null !== this.getOuterHole();
+                    },
+                    getLineString: function() {
+                        return this.getCoordinates(), this.factory.createLineString(this.ringPts);
+                    },
+                    toString: function() {
+                        return se.toLineString(new Gt(this.getCoordinates()));
+                    },
+                    getShell: function() {
+                        return this.isHole() ? this.shell : this;
+                    },
+                    add: function(t) {
+                        this.deList.add(t);
+                    },
+                    getRing: function() {
+                        if (null !== this.ring) return this.ring;
+                        this.getCoordinates(), this.ringPts.length < 3 && A.out.println(this.ringPts);
+                        try {
+                            this.ring = this.factory.createLinearRing(this.ringPts);
+                        } catch (t) {
+                            if (!(t instanceof S)) throw t;
+                            A.out.println(this.ringPts);
+                        } finally {}
+                        return this.ring;
+                    },
+                    updateIncluded: function() {
+                        if (this.isHole()) return null;
+                        for (var t = 0; t < this.deList.size(); t++) {
+                            var e = this.deList.get(t), n = e.getSym().getRing().getShell();
+                            if (null !== n && n.isIncludedSet()) return this.setIncluded(!n.isIncluded()), null;
+                        }
+                    },
+                    setShell: function(t) {
+                        this.shell = t;
+                    },
+                    setProcessed: function(t) {
+                        this._isProcessed = t;
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return Xr;
+                    }
+                }), Xr.findDirEdgesInRing = function(t) {
+                    var e = t, n = new I();
+                    do {
+                        n.add(e), e = e.getNext(), f.isTrue(null !== e, "found null DE in ring"), f.isTrue(e === t || !e.isInRing(), "found DE already in ring");
+                    } while (e !== t);
+                    return n;
+                }, Xr.addEdge = function(t, e, n) {
+                    if (e) for (var i = 0; i < t.length; i++) n.add(t[i], !1); else for (var i = t.length - 1; i >= 0; i--) n.add(t[i], !1);
+                }, Xr.findEdgeRingContaining = function(t, e) {
+                    for (var n = t.getRing(), i = n.getEnvelopeInternal(), r = n.getCoordinateN(0), s = null, o = null, a = e.iterator(); a.hasNext(); ) {
+                        var u = a.next(), l = u.getRing(), h = l.getEnvelopeInternal();
+                        if (!h.equals(i) && h.contains(i)) {
+                            r = H.ptNotInList(n.getCoordinates(), l.getCoordinates());
+                            var c = !1;
+                            he.isPointInRing(r, l.getCoordinates()) && (c = !0), c && (null === s || o.contains(h)) && (s = u, 
+                            o = s.getRing().getEnvelopeInternal());
+                        }
+                    }
+                    return s;
+                }, e(Hr.prototype, {
+                    compare: function(t, e) {
+                        var n = t, i = e;
+                        return n.getRing().getEnvelope().compareTo(i.getRing().getEnvelope());
+                    },
+                    interfaces_: function() {
+                        return [ a ];
+                    },
+                    getClass: function() {
+                        return Hr;
+                    }
+                }), Xr.EnvelopeComparator = Hr, h(Wr, Pr), e(Wr.prototype, {
+                    findEdgeRing: function(t) {
+                        var e = new Xr(this.factory);
+                        return e.build(t), e;
+                    },
+                    computeDepthParity: function() {
+                        if (0 === arguments.length) for (;;) {
+                            var t = null;
+                            if (null === t) return null;
+                            this.computeDepthParity(t);
+                        } else if (1 === arguments.length) {
+                            arguments[0];
+                        }
+                    },
+                    computeNextCWEdges: function() {
+                        for (var t = this.nodeIterator(); t.hasNext(); ) {
+                            var e = t.next();
+                            Wr.computeNextCWEdges(e);
+                        }
+                    },
+                    addEdge: function(t) {
+                        if (t.isEmpty()) return null;
+                        var e = H.removeRepeatedPoints(t.getCoordinates());
+                        if (e.length < 2) return null;
+                        var n = e[0], i = e[e.length - 1], r = this.getNode(n), s = this.getNode(i), o = new _r(r, s, e[1], !0), a = new _r(s, r, e[e.length - 2], !1), u = new Mr(t);
+                        u.setDirectedEdges(o, a), this.add(u);
+                    },
+                    deleteCutEdges: function() {
+                        this.computeNextCWEdges(), Wr.findLabeledEdgeRings(this.dirEdges);
+                        for (var t = new I(), e = this.dirEdges.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            if (!n.isMarked()) {
+                                var i = n.getSym();
+                                if (n.getLabel() === i.getLabel()) {
+                                    n.setMarked(!0), i.setMarked(!0);
+                                    var r = n.getEdge();
+                                    t.add(r.getLine());
+                                }
+                            }
+                        }
+                        return t;
+                    },
+                    getEdgeRings: function() {
+                        this.computeNextCWEdges(), Wr.label(this.dirEdges, -1);
+                        var t = Wr.findLabeledEdgeRings(this.dirEdges);
+                        this.convertMaximalToMinimalEdgeRings(t);
+                        for (var e = new I(), n = this.dirEdges.iterator(); n.hasNext(); ) {
+                            var i = n.next();
+                            if (!i.isMarked() && !i.isInRing()) {
+                                var r = this.findEdgeRing(i);
+                                e.add(r);
+                            }
+                        }
+                        return e;
+                    },
+                    getNode: function(t) {
+                        var e = this.findNode(t);
+                        return null === e && (e = new Lr(t), this.add(e)), e;
+                    },
+                    convertMaximalToMinimalEdgeRings: function(t) {
+                        for (var e = t.iterator(); e.hasNext(); ) {
+                            var n = e.next(), i = n.getLabel(), r = Wr.findIntersectionNodes(n, i);
+                            if (null !== r) for (var s = r.iterator(); s.hasNext(); ) {
+                                var o = s.next();
+                                Wr.computeNextCCWEdges(o, i);
+                            }
+                        }
+                    },
+                    deleteDangles: function() {
+                        for (var t = this.findNodesOfDegree(1), e = new J(), n = new pe(), i = t.iterator(); i.hasNext(); ) n.push(i.next());
+                        for (;!n.isEmpty(); ) {
+                            var r = n.pop();
+                            Wr.deleteAllEdges(r);
+                            for (var s = r.getOutEdges().getEdges(), i = s.iterator(); i.hasNext(); ) {
+                                var o = i.next();
+                                o.setMarked(!0);
+                                var a = o.getSym();
+                                null !== a && a.setMarked(!0);
+                                var u = o.getEdge();
+                                e.add(u.getLine());
+                                var l = o.getToNode();
+                                1 === Wr.getDegreeNonDeleted(l) && n.push(l);
+                            }
+                        }
+                        return e;
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return Wr;
+                    }
+                }), Wr.findLabeledEdgeRings = function(t) {
+                    for (var e = new I(), n = 1, i = t.iterator(); i.hasNext(); ) {
+                        var r = i.next();
+                        if (!(r.isMarked() || r.getLabel() >= 0)) {
+                            e.add(r);
+                            var s = Xr.findDirEdgesInRing(r);
+                            Wr.label(s, n), n++;
+                        }
+                    }
+                    return e;
+                }, Wr.getDegreeNonDeleted = function(t) {
+                    for (var e = t.getOutEdges().getEdges(), n = 0, i = e.iterator(); i.hasNext(); ) {
+                        var r = i.next();
+                        r.isMarked() || n++;
+                    }
+                    return n;
+                }, Wr.deleteAllEdges = function(t) {
+                    for (var e = t.getOutEdges().getEdges(), n = e.iterator(); n.hasNext(); ) {
+                        var i = n.next();
+                        i.setMarked(!0);
+                        var r = i.getSym();
+                        null !== r && r.setMarked(!0);
+                    }
+                }, Wr.label = function(t, e) {
+                    for (var n = t.iterator(); n.hasNext(); ) {
+                        var i = n.next();
+                        i.setLabel(e);
+                    }
+                }, Wr.computeNextCWEdges = function(t) {
+                    for (var e = t.getOutEdges(), n = null, i = null, r = e.getEdges().iterator(); r.hasNext(); ) {
+                        var s = r.next();
+                        if (!s.isMarked()) {
+                            if (null === n && (n = s), null !== i) {
+                                var o = i.getSym();
+                                o.setNext(s);
+                            }
+                            i = s;
+                        }
+                    }
+                    if (null !== i) {
+                        var o = i.getSym();
+                        o.setNext(n);
+                    }
+                }, Wr.computeNextCCWEdges = function(t, e) {
+                    for (var n = t.getOutEdges(), i = null, r = null, s = n.getEdges(), o = s.size() - 1; o >= 0; o--) {
+                        var a = s.get(o), u = a.getSym(), l = null;
+                        a.getLabel() === e && (l = a);
+                        var h = null;
+                        u.getLabel() === e && (h = u), null === l && null === h || (null !== h && (r = h), 
+                        null !== l && (null !== r && (r.setNext(l), r = null), null === i && (i = l)));
+                    }
+                    null !== r && (f.isTrue(null !== i), r.setNext(i));
+                }, Wr.getDegree = function(t, e) {
+                    for (var n = t.getOutEdges().getEdges(), i = 0, r = n.iterator(); r.hasNext(); ) {
+                        var s = r.next();
+                        s.getLabel() === e && i++;
+                    }
+                    return i;
+                }, Wr.findIntersectionNodes = function(t, e) {
+                    var n = t, i = null;
+                    do {
+                        var r = n.getFromNode();
+                        Wr.getDegree(r, e) > 1 && (null === i && (i = new I()), i.add(r)), n = n.getNext(), 
+                        f.isTrue(null !== n, "found null DE in ring"), f.isTrue(n === t || !n.isInRing(), "found DE already in ring");
+                    } while (n !== t);
+                    return i;
+                }, e(jr.prototype, {
+                    getGeometry: function() {
+                        return null === this.geomFactory && (this.geomFactory = new ie()), this.polygonize(), 
+                        this.extractOnlyPolygonal ? this.geomFactory.buildGeometry(this.polyList) : this.geomFactory.createGeometryCollection(ie.toGeometryArray(this.polyList));
+                    },
+                    getInvalidRingLines: function() {
+                        return this.polygonize(), this.invalidRingLines;
+                    },
+                    findValidRings: function(t, e, n) {
+                        for (var i = t.iterator(); i.hasNext(); ) {
+                            var r = i.next();
+                            r.isValid() ? e.add(r) : n.add(r.getLineString());
+                        }
+                    },
+                    polygonize: function() {
+                        if (null !== this.polyList) return null;
+                        if (this.polyList = new I(), null === this.graph) return null;
+                        this.dangles = this.graph.deleteDangles(), this.cutEdges = this.graph.deleteCutEdges();
+                        var t = this.graph.getEdgeRings(), e = new I();
+                        this.invalidRingLines = new I(), this.isCheckingRingsValid ? this.findValidRings(t, e, this.invalidRingLines) : e = t, 
+                        this.findShellsAndHoles(e), jr.assignHolesToShells(this.holeList, this.shellList), 
+                        ho.sort(this.shellList, new Xr.EnvelopeComparator());
+                        var n = !0;
+                        this.extractOnlyPolygonal && (jr.findDisjointShells(this.shellList), n = !1), this.polyList = jr.extractPolygons(this.shellList, n);
+                    },
+                    getDangles: function() {
+                        return this.polygonize(), this.dangles;
+                    },
+                    getCutEdges: function() {
+                        return this.polygonize(), this.cutEdges;
+                    },
+                    getPolygons: function() {
+                        return this.polygonize(), this.polyList;
+                    },
+                    add: function() {
+                        if (R(arguments[0], v)) for (var t = arguments[0], e = t.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            this.add(n);
+                        } else if (arguments[0] instanceof St) {
+                            var i = arguments[0];
+                            this.geomFactory = i.getFactory(), null === this.graph && (this.graph = new Wr(this.geomFactory)), 
+                            this.graph.addEdge(i);
+                        } else if (arguments[0] instanceof B) {
+                            var r = arguments[0];
+                            r.apply(this.lineStringAdder);
+                        }
+                    },
+                    setCheckRingsValid: function(t) {
+                        this.isCheckingRingsValid = t;
+                    },
+                    findShellsAndHoles: function(t) {
+                        this.holeList = new I(), this.shellList = new I();
+                        for (var e = t.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            n.computeHole(), n.isHole() ? this.holeList.add(n) : this.shellList.add(n);
+                        }
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return jr;
+                    }
+                }), jr.findOuterShells = function(t) {
+                    for (var e = t.iterator(); e.hasNext(); ) {
+                        var n = e.next(), i = n.getOuterHole();
+                        null === i || i.isProcessed() || (n.setIncluded(!0), i.setProcessed(!0));
+                    }
+                }, jr.extractPolygons = function(t, e) {
+                    for (var n = new I(), i = t.iterator(); i.hasNext(); ) {
+                        var r = i.next();
+                        (e || r.isIncluded()) && n.add(r.getPolygon());
+                    }
+                    return n;
+                }, jr.assignHolesToShells = function(t, e) {
+                    for (var n = t.iterator(); n.hasNext(); ) {
+                        var i = n.next();
+                        jr.assignHoleToShell(i, e);
+                    }
+                }, jr.assignHoleToShell = function(t, e) {
+                    var n = Xr.findEdgeRingContaining(t, e);
+                    null !== n && n.addHole(t);
+                }, jr.findDisjointShells = function(t) {
+                    jr.findOuterShells(t);
+                    var e = null;
+                    do {
+                        e = !1;
+                        for (var n = t.iterator(); n.hasNext(); ) {
+                            var i = n.next();
+                            i.isIncludedSet() || (i.updateIncluded(), i.isIncludedSet() || (e = !0));
+                        }
+                    } while (e);
+                }, e(Kr.prototype, {
+                    filter: function(t) {
+                        t instanceof St && this.p.add(t);
+                    },
+                    interfaces_: function() {
+                        return [ q ];
+                    },
+                    getClass: function() {
+                        return Kr;
+                    }
+                }), jr.LineStringAdder = Kr;
+                var To = Object.freeze({
+                    Polygonizer: jr
+                });
+                e(Zr.prototype, {
+                    insertEdgeEnds: function(t) {
+                        for (var e = t.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            this.nodes.add(n);
+                        }
+                    },
+                    computeProperIntersectionIM: function(t, e) {
+                        var n = this.arg[0].getGeometry().getDimension(), i = this.arg[1].getGeometry().getDimension(), r = t.hasProperIntersection(), s = t.hasProperInteriorIntersection();
+                        2 === n && 2 === i ? r && e.setAtLeast("212101212") : 2 === n && 1 === i ? (r && e.setAtLeast("FFF0FFFF2"), 
+                        s && e.setAtLeast("1FFFFF1FF")) : 1 === n && 2 === i ? (r && e.setAtLeast("F0FFFFFF2"), 
+                        s && e.setAtLeast("1F1FFFFFF")) : 1 === n && 1 === i && s && e.setAtLeast("0FFFFFFFF");
+                    },
+                    labelIsolatedEdges: function(t, e) {
+                        for (var n = this.arg[t].getEdgeIterator(); n.hasNext(); ) {
+                            var i = n.next();
+                            i.isIsolated() && (this.labelIsolatedEdge(i, e, this.arg[e].getGeometry()), this.isolatedEdges.add(i));
+                        }
+                    },
+                    labelIsolatedEdge: function(t, e, n) {
+                        if (n.getDimension() > 0) {
+                            var i = this.ptLocator.locate(t.getCoordinate(), n);
+                            t.getLabel().setAllLocations(e, i);
+                        } else t.getLabel().setAllLocations(e, L.EXTERIOR);
+                    },
+                    computeIM: function() {
+                        var t = new fe();
+                        if (t.set(L.EXTERIOR, L.EXTERIOR, 2), !this.arg[0].getGeometry().getEnvelopeInternal().intersects(this.arg[1].getGeometry().getEnvelopeInternal())) return this.computeDisjointIM(t), 
+                        t;
+                        this.arg[0].computeSelfNodes(this.li, !1), this.arg[1].computeSelfNodes(this.li, !1);
+                        var e = this.arg[0].computeEdgeIntersections(this.arg[1], this.li, !1);
+                        this.computeIntersectionNodes(0), this.computeIntersectionNodes(1), this.copyNodesAndLabels(0), 
+                        this.copyNodesAndLabels(1), this.labelIsolatedNodes(), this.computeProperIntersectionIM(e, t);
+                        var n = new Ar(), i = n.computeEdgeEnds(this.arg[0].getEdgeIterator());
+                        this.insertEdgeEnds(i);
+                        var r = n.computeEdgeEnds(this.arg[1].getEdgeIterator());
+                        return this.insertEdgeEnds(r), this.labelNodeEdges(), this.labelIsolatedEdges(0, 1), 
+                        this.labelIsolatedEdges(1, 0), this.updateIM(t), t;
+                    },
+                    labelNodeEdges: function() {
+                        for (var t = this.nodes.iterator(); t.hasNext(); ) {
+                            var e = t.next();
+                            e.getEdges().computeLabelling(this.arg);
+                        }
+                    },
+                    copyNodesAndLabels: function(t) {
+                        for (var e = this.arg[t].getNodeIterator(); e.hasNext(); ) {
+                            var n = e.next(), i = this.nodes.addNode(n.getCoordinate());
+                            i.setLabel(t, n.getLabel().getLocation(t));
+                        }
+                    },
+                    labelIntersectionNodes: function(t) {
+                        for (var e = this.arg[t].getEdgeIterator(); e.hasNext(); ) for (var n = e.next(), i = n.getLabel().getLocation(t), r = n.getEdgeIntersectionList().iterator(); r.hasNext(); ) {
+                            var s = r.next(), o = this.nodes.find(s.coord);
+                            o.getLabel().isNull(t) && (i === L.BOUNDARY ? o.setLabelBoundary(t) : o.setLabel(t, L.INTERIOR));
+                        }
+                    },
+                    labelIsolatedNode: function(t, e) {
+                        var n = this.ptLocator.locate(t.getCoordinate(), this.arg[e].getGeometry());
+                        t.getLabel().setAllLocations(e, n);
+                    },
+                    computeIntersectionNodes: function(t) {
+                        for (var e = this.arg[t].getEdgeIterator(); e.hasNext(); ) for (var n = e.next(), i = n.getLabel().getLocation(t), r = n.getEdgeIntersectionList().iterator(); r.hasNext(); ) {
+                            var s = r.next(), o = this.nodes.addNode(s.coord);
+                            i === L.BOUNDARY ? o.setLabelBoundary(t) : o.getLabel().isNull(t) && o.setLabel(t, L.INTERIOR);
+                        }
+                    },
+                    labelIsolatedNodes: function() {
+                        for (var t = this.nodes.iterator(); t.hasNext(); ) {
+                            var e = t.next(), n = e.getLabel();
+                            f.isTrue(n.getGeometryCount() > 0, "node with empty label found"), e.isIsolated() && (n.isNull(0) ? this.labelIsolatedNode(e, 0) : this.labelIsolatedNode(e, 1));
+                        }
+                    },
+                    updateIM: function(t) {
+                        for (var e = this.isolatedEdges.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            n.updateIM(t);
+                        }
+                        for (var i = this.nodes.iterator(); i.hasNext(); ) {
+                            var r = i.next();
+                            r.updateIM(t), r.updateIMFromEdges(t);
+                        }
+                    },
+                    computeDisjointIM: function(t) {
+                        var e = this.arg[0].getGeometry();
+                        e.isEmpty() || (t.set(L.INTERIOR, L.EXTERIOR, e.getDimension()), t.set(L.BOUNDARY, L.EXTERIOR, e.getBoundaryDimension()));
+                        var n = this.arg[1].getGeometry();
+                        n.isEmpty() || (t.set(L.EXTERIOR, L.INTERIOR, n.getDimension()), t.set(L.EXTERIOR, L.BOUNDARY, n.getBoundaryDimension()));
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return Zr;
+                    }
+                }), e(Qr.prototype, {
+                    isContainedInBoundary: function(t) {
+                        if (t instanceof Tt) return !1;
+                        if (t instanceof Lt) return this.isPointContainedInBoundary(t);
+                        if (t instanceof St) return this.isLineStringContainedInBoundary(t);
+                        for (var e = 0; e < t.getNumGeometries(); e++) {
+                            var n = t.getGeometryN(e);
+                            if (!this.isContainedInBoundary(n)) return !1;
+                        }
+                        return !0;
+                    },
+                    isLineSegmentContainedInBoundary: function(t, e) {
+                        if (t.equals(e)) return this.isPointContainedInBoundary(t);
+                        if (t.x === e.x) {
+                            if (t.x === this.rectEnv.getMinX() || t.x === this.rectEnv.getMaxX()) return !0;
+                        } else if (t.y === e.y && (t.y === this.rectEnv.getMinY() || t.y === this.rectEnv.getMaxY())) return !0;
+                        return !1;
+                    },
+                    isLineStringContainedInBoundary: function(t) {
+                        for (var e = t.getCoordinateSequence(), n = new g(), i = new g(), r = 0; r < e.size() - 1; r++) if (e.getCoordinate(r, n), 
+                        e.getCoordinate(r + 1, i), !this.isLineSegmentContainedInBoundary(n, i)) return !1;
+                        return !0;
+                    },
+                    isPointContainedInBoundary: function() {
+                        if (arguments[0] instanceof Lt) {
+                            var t = arguments[0];
+                            return this.isPointContainedInBoundary(t.getCoordinate());
+                        }
+                        if (arguments[0] instanceof g) {
+                            var e = arguments[0];
+                            return e.x === this.rectEnv.getMinX() || e.x === this.rectEnv.getMaxX() || e.y === this.rectEnv.getMinY() || e.y === this.rectEnv.getMaxY();
+                        }
+                    },
+                    contains: function(t) {
+                        return !!this.rectEnv.contains(t.getEnvelopeInternal()) && !this.isContainedInBoundary(t);
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return Qr;
+                    }
+                }), Qr.contains = function(t, e) {
+                    var n = new Qr(t);
+                    return n.contains(e);
+                }, e(Jr.prototype, {
+                    intersects: function(t, e) {
+                        var n = new C(t, e);
+                        if (!this.rectEnv.intersects(n)) return !1;
+                        if (this.rectEnv.intersects(t)) return !0;
+                        if (this.rectEnv.intersects(e)) return !0;
+                        if (t.compareTo(e) > 0) {
+                            var i = t;
+                            t = e, e = i;
+                        }
+                        var r = !1;
+                        return e.y > t.y && (r = !0), r ? this.li.computeIntersection(t, e, this.diagDown0, this.diagDown1) : this.li.computeIntersection(t, e, this.diagUp0, this.diagUp1), 
+                        !!this.li.hasIntersection();
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return Jr;
+                    }
+                }), e($r.prototype, {
+                    applyTo: function(t) {
+                        for (var e = 0; e < t.getNumGeometries() && !this._isDone; e++) {
+                            var n = t.getGeometryN(e);
+                            if (n instanceof ft) this.applyTo(n); else if (this.visit(n), this.isDone()) return this._isDone = !0, 
+                            null;
+                        }
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return $r;
+                    }
+                }), e(ts.prototype, {
+                    intersects: function(t) {
+                        if (!this.rectEnv.intersects(t.getEnvelopeInternal())) return !1;
+                        var e = new es(this.rectEnv);
+                        if (e.applyTo(t), e.intersects()) return !0;
+                        var n = new ns(this.rectangle);
+                        if (n.applyTo(t), n.containsPoint()) return !0;
+                        var i = new is(this.rectangle);
+                        return i.applyTo(t), !!i.intersects();
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return ts;
+                    }
+                }), ts.intersects = function(t, e) {
+                    var n = new ts(t);
+                    return n.intersects(e);
+                }, h(es, $r), e(es.prototype, {
+                    isDone: function() {
+                        return this._intersects === !0;
+                    },
+                    visit: function(t) {
+                        var e = t.getEnvelopeInternal();
+                        return this.rectEnv.intersects(e) ? this.rectEnv.contains(e) ? (this._intersects = !0, 
+                        null) : e.getMinX() >= this.rectEnv.getMinX() && e.getMaxX() <= this.rectEnv.getMaxX() ? (this._intersects = !0, 
+                        null) : e.getMinY() >= this.rectEnv.getMinY() && e.getMaxY() <= this.rectEnv.getMaxY() ? (this._intersects = !0, 
+                        null) : void 0 : null;
+                    },
+                    intersects: function() {
+                        return this._intersects;
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return es;
+                    }
+                }), h(ns, $r), e(ns.prototype, {
+                    isDone: function() {
+                        return this._containsPoint === !0;
+                    },
+                    visit: function(t) {
+                        if (!(t instanceof Tt)) return null;
+                        var e = t.getEnvelopeInternal();
+                        if (!this.rectEnv.intersects(e)) return null;
+                        for (var n = new g(), i = 0; i < 4; i++) if (this.rectSeq.getCoordinate(i, n), e.contains(n) && Tn.containsPointInPolygon(n, t)) return this._containsPoint = !0, 
+                        null;
+                    },
+                    containsPoint: function() {
+                        return this._containsPoint;
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return ns;
+                    }
+                }), h(is, $r), e(is.prototype, {
+                    intersects: function() {
+                        return this.hasIntersection;
+                    },
+                    isDone: function() {
+                        return this.hasIntersection === !0;
+                    },
+                    visit: function(t) {
+                        var e = t.getEnvelopeInternal();
+                        if (!this.rectEnv.intersects(e)) return null;
+                        var n = kn.getLines(t);
+                        this.checkIntersectionWithLineStrings(n);
+                    },
+                    checkIntersectionWithLineStrings: function(t) {
+                        for (var e = t.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            if (this.checkIntersectionWithSegments(n), this.hasIntersection) return null;
+                        }
+                    },
+                    checkIntersectionWithSegments: function(t) {
+                        for (var e = t.getCoordinateSequence(), n = 1; n < e.size(); n++) if (e.getCoordinate(n - 1, this.p0), 
+                        e.getCoordinate(n, this.p1), this.rectIntersector.intersects(this.p0, this.p1)) return this.hasIntersection = !0, 
+                        null;
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return is;
+                    }
+                }), h(rs, ti), e(rs.prototype, {
+                    getIntersectionMatrix: function() {
+                        return this._relate.computeIM();
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return rs;
+                    }
+                }), rs.covers = function(t, e) {
+                    return !!t.getEnvelopeInternal().covers(e.getEnvelopeInternal()) && (!!t.isRectangle() || rs.relate(t, e).isCovers());
+                }, rs.intersects = function(t, e) {
+                    return !!t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) && (t.isRectangle() ? ts.intersects(t, e) : e.isRectangle() ? ts.intersects(e, t) : rs.relate(t, e).isIntersects());
+                }, rs.touches = function(t, e) {
+                    return !!t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) && rs.relate(t, e).isTouches(t.getDimension(), e.getDimension());
+                }, rs.within = function(t, e) {
+                    return e.contains(t);
+                }, rs.coveredBy = function(t, e) {
+                    return rs.covers(e, t);
+                }, rs.relate = function() {
+                    if (2 === arguments.length) {
+                        var t = arguments[0], e = arguments[1], n = new rs(t, e), i = n.getIntersectionMatrix();
+                        return i;
+                    }
+                    if (3 === arguments.length) {
+                        if ("string" == typeof arguments[2] && arguments[0] instanceof B && arguments[1] instanceof B) {
+                            var r = arguments[0], s = arguments[1], o = arguments[2];
+                            return rs.relateWithCheck(r, s).matches(o);
+                        }
+                        if (R(arguments[2], V) && arguments[0] instanceof B && arguments[1] instanceof B) {
+                            var a = arguments[0], u = arguments[1], l = arguments[2], n = new rs(a, u, l), i = n.getIntersectionMatrix();
+                            return i;
+                        }
+                    }
+                }, rs.overlaps = function(t, e) {
+                    return !!t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) && rs.relate(t, e).isOverlaps(t.getDimension(), e.getDimension());
+                }, rs.disjoint = function(t, e) {
+                    return !t.intersects(e);
+                }, rs.relateWithCheck = function(t, e) {
+                    return t.checkNotGeometryCollection(t), t.checkNotGeometryCollection(e), rs.relate(t, e);
+                }, rs.crosses = function(t, e) {
+                    return !!t.getEnvelopeInternal().intersects(e.getEnvelopeInternal()) && rs.relate(t, e).isCrosses(t.getDimension(), e.getDimension());
+                }, rs.contains = function(t, e) {
+                    return !!t.getEnvelopeInternal().contains(e.getEnvelopeInternal()) && (t.isRectangle() ? Qr.contains(t, e) : rs.relate(t, e).isContains());
+                };
+                var Po = Object.freeze({
+                    RelateOp: rs
+                });
+                e(ss.prototype, {
+                    extractElements: function(t, e) {
+                        if (null === t) return null;
+                        for (var n = 0; n < t.getNumGeometries(); n++) {
+                            var i = t.getGeometryN(n);
+                            this.skipEmpty && i.isEmpty() || e.add(i);
+                        }
+                    },
+                    combine: function() {
+                        for (var t = new I(), e = this.inputGeoms.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            this.extractElements(n, t);
+                        }
+                        return 0 === t.size() ? null !== this.geomFactory ? this.geomFactory.createGeometryCollection(null) : null : this.geomFactory.buildGeometry(t);
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return ss;
+                    }
+                }), ss.combine = function() {
+                    if (1 === arguments.length) {
+                        var t = arguments[0], e = new ss(t);
+                        return e.combine();
+                    }
+                    if (2 === arguments.length) {
+                        var n = arguments[0], i = arguments[1], e = new ss(ss.createList(n, i));
+                        return e.combine();
+                    }
+                    if (3 === arguments.length) {
+                        var r = arguments[0], s = arguments[1], o = arguments[2], e = new ss(ss.createList(r, s, o));
+                        return e.combine();
+                    }
+                }, ss.extractFactory = function(t) {
+                    return t.isEmpty() ? null : t.iterator().next().getFactory();
+                }, ss.createList = function() {
+                    if (2 === arguments.length) {
+                        var t = arguments[0], e = arguments[1], n = new I();
+                        return n.add(t), n.add(e), n;
+                    }
+                    if (3 === arguments.length) {
+                        var i = arguments[0], r = arguments[1], s = arguments[2], n = new I();
+                        return n.add(i), n.add(r), n.add(s), n;
+                    }
+                }, e(os.prototype, {
+                    union: function() {
+                        for (var t = new Te(), e = new at(), n = 0; n < this.pointGeom.getNumGeometries(); n++) {
+                            var i = this.pointGeom.getGeometryN(n), r = i.getCoordinate(), s = t.locate(r, this.otherGeom);
+                            s === L.EXTERIOR && e.add(r);
+                        }
+                        if (0 === e.size()) return this.otherGeom;
+                        var o = null, a = H.toCoordinateArray(e);
+                        return o = 1 === a.length ? this.geomFact.createPoint(a[0]) : this.geomFact.createMultiPointFromCoords(a), 
+                        ss.combine(o, this.otherGeom);
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return os;
+                    }
+                }), os.union = function(t, e) {
+                    var n = new os(t, e);
+                    return n.union();
+                }, e(as.prototype, {
+                    filter: function(t) {
+                        this.sortIndex !== -1 && t.getSortIndex() !== this.sortIndex || this.comps.add(t);
+                    },
+                    interfaces_: function() {
+                        return [ ht ];
+                    },
+                    getClass: function() {
+                        return as;
+                    }
+                }), as.extract = function() {
+                    if (2 === arguments.length) {
+                        var t = arguments[0], e = arguments[1];
+                        return as.extract(t, e, new I());
+                    }
+                    if (3 === arguments.length) {
+                        var n = arguments[0], i = arguments[1], r = arguments[2];
+                        return n.getSortIndex() === i ? r.add(n) : n instanceof ft && n.apply(new as(i, r)), 
+                        r;
+                    }
+                }, e(us.prototype, {
+                    reduceToGeometries: function(t) {
+                        for (var e = new I(), n = t.iterator(); n.hasNext(); ) {
+                            var i = n.next(), r = null;
+                            R(i, y) ? r = this.unionTree(i) : i instanceof B && (r = i), e.add(r);
+                        }
+                        return e;
+                    },
+                    extractByEnvelope: function(t, e, n) {
+                        for (var i = new I(), r = 0; r < e.getNumGeometries(); r++) {
+                            var s = e.getGeometryN(r);
+                            s.getEnvelopeInternal().intersects(t) ? i.add(s) : n.add(s);
+                        }
+                        return this.geomFactory.buildGeometry(i);
+                    },
+                    unionOptimized: function(t, e) {
+                        var n = t.getEnvelopeInternal(), i = e.getEnvelopeInternal();
+                        if (!n.intersects(i)) {
+                            var r = ss.combine(t, e);
+                            return r;
+                        }
+                        if (t.getNumGeometries() <= 1 && e.getNumGeometries() <= 1) return this.unionActual(t, e);
+                        var s = n.intersection(i);
+                        return this.unionUsingEnvelopeIntersection(t, e, s);
+                    },
+                    union: function() {
+                        if (null === this.inputPolys) throw new IllegalStateException("union() method cannot be called twice");
+                        if (this.inputPolys.isEmpty()) return null;
+                        this.geomFactory = this.inputPolys.iterator().next().getFactory();
+                        for (var t = new ke(us.STRTREE_NODE_CAPACITY), e = this.inputPolys.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            t.insert(n.getEnvelopeInternal(), n);
+                        }
+                        this.inputPolys = null;
+                        var i = t.itemsTree(), r = this.unionTree(i);
+                        return r;
+                    },
+                    binaryUnion: function() {
+                        if (1 === arguments.length) {
+                            var t = arguments[0];
+                            return this.binaryUnion(t, 0, t.size());
+                        }
+                        if (3 === arguments.length) {
+                            var e = arguments[0], n = arguments[1], i = arguments[2];
+                            if (i - n <= 1) {
+                                var r = us.getGeometry(e, n);
+                                return this.unionSafe(r, null);
+                            }
+                            if (i - n === 2) return this.unionSafe(us.getGeometry(e, n), us.getGeometry(e, n + 1));
+                            var s = Math.trunc((i + n) / 2), r = this.binaryUnion(e, n, s), o = this.binaryUnion(e, s, i);
+                            return this.unionSafe(r, o);
+                        }
+                    },
+                    repeatedUnion: function(t) {
+                        for (var e = null, n = t.iterator(); n.hasNext(); ) {
+                            var i = n.next();
+                            e = null === e ? i.copy() : e.union(i);
+                        }
+                        return e;
+                    },
+                    unionSafe: function(t, e) {
+                        return null === t && null === e ? null : null === t ? e.copy() : null === e ? t.copy() : this.unionOptimized(t, e);
+                    },
+                    unionActual: function(t, e) {
+                        return us.restrictToPolygons(t.union(e));
+                    },
+                    unionTree: function(t) {
+                        var e = this.reduceToGeometries(t), n = this.binaryUnion(e);
+                        return n;
+                    },
+                    unionUsingEnvelopeIntersection: function(t, e, n) {
+                        var i = new I(), r = this.extractByEnvelope(n, t, i), s = this.extractByEnvelope(n, e, i), o = this.unionActual(r, s);
+                        i.add(o);
+                        var a = ss.combine(i);
+                        return a;
+                    },
+                    bufferUnion: function() {
+                        if (1 === arguments.length) {
+                            var t = arguments[0], e = t.get(0).getFactory(), n = e.buildGeometry(t), i = n.buffer(0);
+                            return i;
+                        }
+                        if (2 === arguments.length) {
+                            var r = arguments[0], s = arguments[1], e = r.getFactory(), n = e.createGeometryCollection([ r, s ]), i = n.buffer(0);
+                            return i;
+                        }
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return us;
+                    }
+                }), us.restrictToPolygons = function(t) {
+                    if (R(t, Rt)) return t;
+                    var e = pr.getPolygons(t);
+                    return 1 === e.size() ? e.get(0) : t.getFactory().createMultiPolygon(ie.toPolygonArray(e));
+                }, us.getGeometry = function(t, e) {
+                    return e >= t.size() ? null : t.get(e);
+                }, us.union = function(t) {
+                    var e = new us(t);
+                    return e.union();
+                }, us.STRTREE_NODE_CAPACITY = 4, e(ls.prototype, {
+                    unionNoOpt: function(t) {
+                        var e = this.geomFact.createPoint();
+                        return si.overlayOp(t, e, ii.UNION);
+                    },
+                    unionWithNull: function(t, e) {
+                        return null === t && null === e ? null : null === e ? t : null === t ? e : t.union(e);
+                    },
+                    extract: function() {
+                        if (R(arguments[0], v)) for (var t = arguments[0], e = t.iterator(); e.hasNext(); ) {
+                            var n = e.next();
+                            this.extract(n);
+                        } else if (arguments[0] instanceof B) {
+                            var i = arguments[0];
+                            null === this.geomFact && (this.geomFact = i.getFactory()), as.extract(i, B.SORTINDEX_POLYGON, this.polygons), 
+                            as.extract(i, B.SORTINDEX_LINESTRING, this.lines), as.extract(i, B.SORTINDEX_POINT, this.points);
+                        }
+                    },
+                    union: function t() {
+                        if (null === this.geomFact) return null;
+                        var e = null;
+                        if (this.points.size() > 0) {
+                            var n = this.geomFact.buildGeometry(this.points);
+                            e = this.unionNoOpt(n);
+                        }
+                        var i = null;
+                        if (this.lines.size() > 0) {
+                            var r = this.geomFact.buildGeometry(this.lines);
+                            i = this.unionNoOpt(r);
+                        }
+                        var s = null;
+                        this.polygons.size() > 0 && (s = us.union(this.polygons));
+                        var o = this.unionWithNull(i, s), t = null;
+                        return t = null === e ? o : null === o ? e : os.union(e, o), null === t ? this.geomFact.createGeometryCollection() : t;
+                    },
+                    interfaces_: function() {
+                        return [];
+                    },
+                    getClass: function() {
+                        return ls;
+                    }
+                }), ls.union = function() {
+                    if (1 === arguments.length) {
+                        if (R(arguments[0], v)) {
+                            var t = arguments[0], e = new ls(t);
+                            return e.union();
+                        }
+                        if (arguments[0] instanceof B) {
+                            var n = arguments[0], e = new ls(n);
+                            return e.union();
+                        }
+                    } else if (2 === arguments.length) {
+                        var i = arguments[0], r = arguments[1], e = new ls(i, r);
+                        return e.union();
                     }
                 };
-                var Oo = Object.freeze({
-                    IsValidOp: ls,
-                    ConsistentAreaTester: os
+                var bo = Object.freeze({
+                    UnaryUnionOp: ls
+                }), Oo = Object.freeze({
+                    IsValidOp: Ur,
+                    ConsistentAreaTester: Vr
                 }), _o = Object.freeze({
                     BoundaryOp: dt,
                     IsSimpleOp: Wi,
@@ -15184,7 +15339,7 @@
                             var r = new g(t[i]);
                             this.targetPM.makePrecise(r), n[i] = r;
                         }
-                        var s = new N(n, (!1)), o = s.toCoordinateArray(), a = 0;
+                        var s = new N(n, !1), o = s.toCoordinateArray(), a = 0;
                         e instanceof St && (a = 2), e instanceof bt && (a = 4);
                         var u = n;
                         return this.removeCollapsed && (u = null), o.length < a ? u : o;
@@ -15200,7 +15355,8 @@
                         var e = t;
                         this.changePrecisionModel || (e = this.changePM(t, this.targetPM));
                         var n = e.buffer(0), i = n;
-                        return this.changePrecisionModel || (i = t.getFactory().createGeometry(n)), i;
+                        return this.changePrecisionModel || (i = this.changePM(n, t.getPrecisionModel())), 
+                        i;
                     },
                     reducePointwise: function(t) {
                         var e = null;
@@ -15259,11 +15415,11 @@
                     simplifySection: function(t, e) {
                         if (t + 1 === e) return null;
                         this.seg.p0 = this.pts[t], this.seg.p1 = this.pts[e];
-                        for (var n = -1, i = t, r = t + 1; e > r; r++) {
+                        for (var n = -1, i = t, r = t + 1; r < e; r++) {
                             var s = this.seg.distance(this.pts[r]);
                             s > n && (n = s, i = r);
                         }
-                        if (n <= this.distanceTolerance) for (var r = t + 1; e > r; r++) this.usePt[r] = !1; else this.simplifySection(t, i), 
+                        if (n <= this.distanceTolerance) for (var r = t + 1; r < e; r++) this.usePt[r] = !1; else this.simplifySection(t, i), 
                         this.simplifySection(i, e);
                     },
                     setDistanceTolerance: function(t) {
@@ -15293,7 +15449,7 @@
                         return this.inputGeom.isEmpty() ? this.inputGeom.copy() : new ds(this.isEnsureValidTopology, this.distanceTolerance).transform(this.inputGeom);
                     },
                     setDistanceTolerance: function(t) {
-                        if (0 > t) throw new i("Tolerance must be non-negative");
+                        if (t < 0) throw new i("Tolerance must be non-negative");
                         this.distanceTolerance = t;
                     },
                     interfaces_: function() {
@@ -15441,7 +15597,7 @@
                         return this.remove(this.line, t, e), this.outputIndex.add(r), r;
                     },
                     hasBadIntersection: function(t, e, n) {
-                        return this.hasBadOutputIntersection(n) ? !0 : !!this.hasBadInputIntersection(t, e, n);
+                        return !!this.hasBadOutputIntersection(n) || !!this.hasBadInputIntersection(t, e, n);
                     },
                     setDistanceTolerance: function(t) {
                         this.distanceTolerance = t;
@@ -15478,7 +15634,7 @@
                     findFurthestPoint: function(t, e, n, i) {
                         var r = new ce();
                         r.p0 = t[e], r.p1 = t[n];
-                        for (var s = -1, o = e, a = e + 1; n > a; a++) {
+                        for (var s = -1, o = e, a = e + 1; a < n; a++) {
                             var u = t[a], l = r.distance(u);
                             l > s && (s = l, o = a);
                         }
@@ -15488,7 +15644,7 @@
                         this.line = t, this.linePts = t.getParentCoordinates(), this.simplifySection(0, this.linePts.length - 1, 0);
                     },
                     remove: function(t, e, n) {
-                        for (var i = e; n > i; i++) {
+                        for (var i = e; i < n; i++) {
                             var r = t.getSegment(i);
                             this.inputIndex.remove(r);
                         }
@@ -15541,7 +15697,7 @@
                         return t;
                     },
                     setDistanceTolerance: function(t) {
-                        if (0 > t) throw new i("Tolerance must be non-negative");
+                        if (t < 0) throw new i("Tolerance must be non-negative");
                         this.lineSimplifier.setDistanceTolerance(t);
                     },
                     interfaces_: function() {
@@ -15669,7 +15825,7 @@
                     return l;
                 }, Rs.isInCircleCC = function(t, e, n, i) {
                     var r = Si.circumcentre(t, e, n), s = t.distance(r), o = i.distance(r) - s;
-                    return 0 >= o;
+                    return o <= 0;
                 }, Rs.isInCircleNormalized = function(t, e, n, i) {
                     var r = t.x - i.x, s = t.y - i.y, o = e.x - i.x, a = e.y - i.y, u = n.x - i.x, l = n.y - i.y, h = r * a - o * s, c = o * l - u * a, f = u * s - r * l, g = r * r + s * s, d = o * o + a * a, p = u * u + l * l, v = g * c + d * f + p * h;
                     return v > 0;
@@ -15691,9 +15847,9 @@
                         var n = new Ts(this.getX(), this.getY()), i = this.bisector(n, t), r = this.bisector(t, e), s = new F(i, r), o = null;
                         try {
                             o = new Ts(s.getX(), s.getY());
-                        } catch (a) {
-                            if (!(a instanceof w)) throw a;
-                            A.err.println("a: " + n + "  b: " + t + "  c: " + e), A.err.println(a);
+                        } catch (i) {
+                            if (!(i instanceof w)) throw i;
+                            A.err.println("a: " + n + "  b: " + t + "  c: " + e), A.err.println(i);
                         } finally {}
                         return o;
                     },
@@ -15753,7 +15909,7 @@
                         return new Ts(t * this.p.x, t * this.p.y);
                     },
                     cross: function() {
-                        return new Ts(this.p.y, (-this.p.x));
+                        return new Ts(this.p.y, -this.p.x);
                     },
                     leftOf: function(t) {
                         return this.isCCW(t.orig(), t.dest());
@@ -15769,7 +15925,7 @@
                     },
                     classify: function(t, e) {
                         var n = this, i = e.sub(t), r = n.sub(t), s = i.crossProduct(r);
-                        return s > 0 ? Ts.LEFT : 0 > s ? Ts.RIGHT : i.getX() * r.getX() < 0 || i.getY() * r.getY() < 0 ? Ts.BEHIND : i.magn() < r.magn() ? Ts.BEYOND : t.equals(n) ? Ts.ORIGIN : e.equals(n) ? Ts.DESTINATION : Ts.BETWEEN;
+                        return s > 0 ? Ts.LEFT : s < 0 ? Ts.RIGHT : i.getX() * r.getX() < 0 || i.getY() * r.getY() < 0 ? Ts.BEHIND : i.magn() < r.magn() ? Ts.BEYOND : t.equals(n) ? Ts.ORIGIN : e.equals(n) ? Ts.DESTINATION : Ts.BETWEEN;
                     },
                     sum: function(t) {
                         return new Ts(this.p.x + t.getX(), this.p.y + t.getY());
@@ -15779,7 +15935,7 @@
                     },
                     circumRadiusRatio: function(t, e) {
                         var n = this.circleCenter(t, e), i = this.distance(n, t), r = this.distance(this, t), s = this.distance(t, e);
-                        return r > s && (r = s), s = this.distance(e, this), r > s && (r = s), i / r;
+                        return s < r && (r = s), s = this.distance(e, this), s < r && (r = s), i / r;
                     },
                     interfaces_: function() {
                         return [];
@@ -15821,7 +15977,7 @@
                     }
                 }), e(bs.prototype, {
                     equalsNonOriented: function(t) {
-                        return this.equalsOriented(t) ? !0 : !!this.equalsOriented(t.sym());
+                        return !!this.equalsOriented(t) || !!this.equalsOriented(t.sym());
                     },
                     toLineSegment: function() {
                         return new ce(this.vertex.getCoordinate(), this.dest().getCoordinate());
@@ -15925,11 +16081,13 @@
                     insertSite: function(t) {
                         var e = this.subdiv.locate(t);
                         if (this.subdiv.isVertexOfEdge(e, t)) return e;
-                        this.subdiv.isOnEdge(e, t.getCoordinate()) && (e = e.oPrev(), this.subdiv["delete"](e.oNext()));
+                        this.subdiv.isOnEdge(e, t.getCoordinate()) && (e = e.oPrev(), this.subdiv.delete(e.oNext()));
                         var n = this.subdiv.makeEdge(e.orig(), t);
                         bs.splice(n, e);
                         var i = n;
-                        do n = this.subdiv.connect(e, n.sym()), e = n.oPrev(); while (e.lNext() !== i);
+                        do {
+                            n = this.subdiv.connect(e, n.sym()), e = n.oPrev();
+                        } while (e.lNext() !== i);
                         for (;;) {
                             var r = e.oPrev();
                             if (r.dest().rightOf(e) && t.isInCircle(e.orig(), r.dest(), e.dest())) bs.swap(e), 
@@ -16004,7 +16162,7 @@
                         return this.visitTriangles(e, t), e.getTriangleVertices();
                     },
                     isFrameVertex: function(t) {
-                        return t.equals(this.frameVertex[0]) ? !0 : t.equals(this.frameVertex[1]) ? !0 : !!t.equals(this.frameVertex[2]);
+                        return !!t.equals(this.frameVertex[0]) || (!!t.equals(this.frameVertex[1]) || !!t.equals(this.frameVertex[2]));
                     },
                     isVertexOfEdge: function(t, e) {
                         return !(!e.equals(t.orig(), this.tolerance) && !e.equals(t.dest(), this.tolerance));
@@ -16140,7 +16298,7 @@
                         bs.splice(t, t.oPrev()), bs.splice(t.sym(), t.sym().oPrev());
                         var e = t.sym(), n = t.rot(), i = t.rot().sym();
                         this.quadEdges.remove(t), this.quadEdges.remove(e), this.quadEdges.remove(n), this.quadEdges.remove(i), 
-                        t["delete"](), e["delete"](), n["delete"](), i["delete"]();
+                        t.delete(), e.delete(), n.delete(), i.delete();
                     },
                     locateFromEdge: function(t, e) {
                         for (var n = 0, i = this.quadEdges.size(), r = e; ;) {
@@ -16181,7 +16339,9 @@
                         var n = this.makeEdge(e.orig(), t);
                         bs.splice(n, e);
                         var i = n;
-                        do n = this.connect(e, n.sym()), e = n.oPrev(); while (e.lNext() !== i);
+                        do {
+                            n = this.connect(e, n.sym()), e = n.oPrev();
+                        } while (e.lNext() !== i);
                         return i;
                     },
                     locate: function() {
@@ -16217,7 +16377,7 @@
                     if (e[0] = t, e[1] = e[0].lNext(), e[2] = e[1].lNext(), e[2].lNext() !== e[0]) throw new i("Edges do not form a triangle");
                 }, e(Gs.prototype, {
                     visit: function(t) {
-                        for (var e = t[0].orig().getCoordinate(), n = t[1].orig().getCoordinate(), i = t[2].orig().getCoordinate(), r = Si.circumcentre(e, n, i), s = new Ts(r), o = 0; 3 > o; o++) t[o].rot().setOrig(s);
+                        for (var e = t[0].orig().getCoordinate(), n = t[1].orig().getCoordinate(), i = t[2].orig().getCoordinate(), r = Si.circumcentre(e, n, i), s = new Ts(r), o = 0; o < 3; o++) t[o].rot().setOrig(s);
                     },
                     interfaces_: function() {
                         return [ As ];
@@ -16258,7 +16418,7 @@
                     },
                     visit: function(t) {
                         this.coordList.clear();
-                        for (var e = 0; 3 > e; e++) {
+                        for (var e = 0; e < 3; e++) {
                             var n = t[e].orig();
                             this.coordList.add(n.getCoordinate());
                         }
@@ -16424,7 +16584,7 @@
                         var r = null, s = null, o = null;
                         n ? (r = e.getMinX(), s = e.getMaxX(), o = t.getX()) : (r = e.getMinY(), s = e.getMaxY(), 
                         o = t.getY());
-                        var a = o > r, u = s >= o;
+                        var a = r < o, u = o <= s;
                         a && this.queryNode(t.getLeft(), e, !n, i), e.contains(t.getCoordinate()) && i.visit(t), 
                         u && this.queryNode(t.getRight(), e, !n, i);
                     },
@@ -16460,7 +16620,7 @@
                         return Us.toCoordinates(t, !1);
                     }
                     if (2 === arguments.length) {
-                        for (var e = arguments[0], n = arguments[1], i = new N(), r = e.iterator(); r.hasNext(); ) for (var s = r.next(), o = n ? s.getCount() : 1, a = 0; o > a; a++) i.add(s.getCoordinate(), !0);
+                        for (var e = arguments[0], n = arguments[1], i = new N(), r = e.iterator(); r.hasNext(); ) for (var s = r.next(), o = n ? s.getCount() : 1, a = 0; a < o; a++) i.add(s.getCoordinate(), !0);
                         return i.toCoordinateArray();
                     }
                 }, e(Xs.prototype, {
@@ -16494,7 +16654,9 @@
                     enforceConstraints: function() {
                         this.addConstraintVertices();
                         var t = 0, e = 0;
-                        do e = this.enforceGabriel(this.segments), t++; while (e > 0 && t < Hs.MAX_SPLIT_ITER);
+                        do {
+                            e = this.enforceGabriel(this.segments), t++;
+                        } while (e > 0 && t < Hs.MAX_SPLIT_ITER);
                     },
                     insertSites: function(t) {
                         for (var e = t.iterator(); e.hasNext(); ) {
@@ -16533,9 +16695,9 @@
                             var c = h.next(), f = c.getCoordinate();
                             if (!f.equals2D(e) && !f.equals2D(n)) {
                                 var d = i.distance(f);
-                                if (s > d) {
+                                if (d < s) {
                                     var p = d;
-                                    (null === u || l > p) && (u = f, l = p);
+                                    (null === u || p < l) && (u = f, l = p);
                                 }
                             }
                         }
@@ -16666,7 +16828,7 @@
                 }, Ws.unique = function(t) {
                     var e = H.copyDeep(t);
                     ut.sort(e);
-                    var n = new N(e, (!1));
+                    var n = new N(e, !1);
                     return n;
                 }, Ws.toVertices = function(t) {
                     for (var e = new I(), n = t.iterator(); n.hasNext(); ) {
@@ -16780,9 +16942,12 @@
                     return t.getFactory().createGeometryCollection(ie.toGeometryArray(i));
                 };
                 var Ao = Object.freeze({
+                    Vertex: Ts
+                }), Fo = Object.freeze({
                     ConformingDelaunayTriangulationBuilder: js,
                     DelaunayTriangulationBuilder: Ws,
-                    VoronoiDiagramBuilder: Ks
+                    VoronoiDiagramBuilder: Ks,
+                    quadedge: Ao
                 });
                 e(Zs.prototype, {
                     interfaces_: function() {
@@ -16800,17 +16965,17 @@
                     return t.checkNotGeometryCollection(t), t.checkNotGeometryCollection(e), si.overlayOp(t, e, ii.UNION);
                 }, e(B.prototype, {
                     equalsTopo: function(t) {
-                        return this.getEnvelopeInternal().equals(t.getEnvelopeInternal()) ? Jr.relate(this, t).isEquals(this.getDimension(), t.getDimension()) : !1;
+                        return !!this.getEnvelopeInternal().equals(t.getEnvelopeInternal()) && rs.relate(this, t).isEquals(this.getDimension(), t.getDimension());
                     },
                     union: function() {
-                        if (0 === arguments.length) return is.union(this);
+                        if (0 === arguments.length) return ls.union(this);
                         if (1 === arguments.length) {
                             var t = arguments[0];
                             return Zs.union(this, t);
                         }
                     },
                     isValid: function() {
-                        return ls.isValid(this);
+                        return Ur.isValid(this);
                     },
                     intersection: function(t) {
                         if (this.isEmpty() || t.isEmpty()) return ii.createEmptyResult(ii.INTERSECTION, this, t, this.factory);
@@ -16829,28 +16994,28 @@
                         si.overlayOp(this, t, ii.INTERSECTION);
                     },
                     covers: function(t) {
-                        return Jr.covers(this, t);
+                        return rs.covers(this, t);
                     },
                     coveredBy: function(t) {
-                        return Jr.coveredBy(this, t);
+                        return rs.coveredBy(this, t);
                     },
                     touches: function(t) {
-                        return Jr.touches(this, t);
+                        return rs.touches(this, t);
                     },
                     intersects: function(t) {
-                        return Jr.intersects(this, t);
+                        return rs.intersects(this, t);
                     },
                     within: function(t) {
-                        return Jr.within(this, t);
+                        return rs.within(this, t);
                     },
                     overlaps: function(t) {
-                        return Jr.overlaps(this, t);
+                        return rs.overlaps(this, t);
                     },
                     disjoint: function(t) {
-                        return Jr.disjoint(this, t);
+                        return rs.disjoint(this, t);
                     },
                     crosses: function(t) {
-                        return Jr.crosses(this, t);
+                        return rs.crosses(this, t);
                     },
                     buffer: function() {
                         if (1 === arguments.length) {
@@ -16870,8 +17035,8 @@
                         return new me(this).getConvexHull();
                     },
                     relate: function() {
-                        for (var t = arguments.length, e = Array(t), n = 0; t > n; n++) e[n] = arguments[n];
-                        return Jr.relate.apply(Jr, [ this ].concat(e));
+                        for (var t = arguments.length, e = Array(t), n = 0; n < t; n++) e[n] = arguments[n];
+                        return rs.relate.apply(rs, [ this ].concat(e));
                     },
                     getCentroid: function() {
                         if (this.isEmpty()) return this.factory.createPoint();
@@ -16913,7 +17078,7 @@
                         this.toText();
                     },
                     contains: function(t) {
-                        return Jr.contains(this, t);
+                        return rs.contains(this, t);
                     },
                     difference: function(t) {
                         return this.isEmpty() ? ii.createEmptyResult(ii.DIFFERENCE, this, t, this.factory) : t.isEmpty() ? this.copy() : (this.checkNotGeometryCollection(this), 
@@ -16925,7 +17090,7 @@
                     },
                     isWithinDistance: function(t, e) {
                         var n = this.getEnvelopeInternal().distance(t.getEnvelopeInternal());
-                        return n > e ? !1 : xr.isWithinDistance(this, t, e);
+                        return !(n > e) && xr.isWithinDistance(this, t, e);
                     },
                     distance: function(t) {
                         return xr.distance(this, t);
@@ -16934,13 +17099,15 @@
                         return this.getClass() === t.getClass();
                     }
                 });
-                var Fo = "1.2.0 (d405c89)";
-                t.version = Fo, t.algorithm = co, t.densify = fo, t.dissolve = go, t.geom = lo, 
+                var Go = "1.3.0 (6e65adb)";
+                t.version = Go, t.algorithm = co, t.densify = fo, t.dissolve = go, t.geom = lo, 
                 t.geomgraph = po, t.index = yo, t.io = No, t.noding = Co, t.operation = _o, t.precision = Mo, 
-                t.simplify = Do, t.triangulate = Ao;
+                t.simplify = Do, t.triangulate = Fo, Object.defineProperty(t, "__esModule", {
+                    value: !0
+                });
             });
         }, {} ],
-        9: [ function(_dereq_, module, exports) {
+        10: [ function(_dereq_, module, exports) {
             function asyncForLoop(arr, process_fn, cb_fn) {
                 // Copyright 2009 Nicholas C. Zakas. All rights reserved.
                 // MIT Licensed
@@ -16966,10 +17133,10 @@
                 module.exports = asyncForLoop;
             }
         }, {} ],
-        10: [ function(_dereq_, module, exports) {
-            var touch_extend = _dereq_("./leaflet-touch-extend"), _turf = _dereq_("./turf"), asyncForLoop = _dereq_("./async-for-loop");
-            L.FreeHandShapes = L.FeatureGroup.extend({
-                version: "0.3.0",
+        11: [ function(_dereq_, module, exports) {
+            var touch_extend = _dereq_("./leaflet-touch-extend"), _turf = _dereq_("./turf"), asyncForLoop = _dereq_("./async-for-loop"), ConcaveHull = _dereq_("concavehull");
+            L.FreeHandShapes = L.LayerGroup.extend({
+                version: "0.3.3",
                 options: {
                     polygon: {
                         className: "leaflet-free-hand-shapes",
@@ -16986,7 +17153,8 @@
                         weight: 2
                     },
                     simplify_tolerance: .005,
-                    merge_polygons: true
+                    merge_polygons: true,
+                    concave_polygons: true
                 },
                 initialize: function(options) {
                     var _this = this, options = options || {};
@@ -17009,7 +17177,7 @@
                             _this.polygonClick(this, e);
                         }
                     });
-                    this.tracer = L.polyline([], L.extend({}, this.options.polyline));
+                    this.tracer = L.polyline([ [ 0, 0 ] ], L.extend({}, this.options.polyline));
                 },
                 onAdd: function(map) {
                     var _this = this;
@@ -17019,41 +17187,39 @@
                         doubleClickZoom: map.doubleClickZoom._enabled,
                         scrollWheelZoom: map.scrollWheelZoom._enabled
                     };
-                    this._events("on");
+                    this.__events("on");
                     this.creating = false;
                     this._map.addLayer(this.tracer);
                     this.setMode(this.mode || "view");
                 },
                 onRemove: function(map) {
                     this.setMapPermissions("enable");
-                    this._events("off");
+                    this.__events("off");
                     this._map.removeLayer(this.tracer);
                 },
+                getEvents: function() {
+                    return {
+                        mousedown: this.mouseDown,
+                        touchstart: this.mouseDown,
+                        zoomstart: this.zoomMoveStart,
+                        movestart: this.zoomMoveStart
+                    };
+                },
                 addLayer: function(layer, noevent) {
+                    L.LayerGroup.prototype.addLayer.call(this, layer);
                     if (noevent) {
-                        if (this.hasLayer(layer)) {
-                            return this;
-                        }
-                        if (L.version.substr(0, 1) === "0") {
-                            if ("on" in layer) {
-                                layer.on(L.FeatureGroup.EVENTS, this._propagateEvent, this);
-                            }
-                            L.LayerGroup.prototype.addLayer.call(this, layer);
-                            if (this._popupContent && layer.bindPopup) {
-                                layer.bindPopup(this._popupContent, this._popupOptions);
-                            }
-                        } else {
-                            layer.addEventParent(this);
-                            L.LayerGroup.prototype.addLayer.call(this, layer);
-                        }
                         return this;
                     }
-                    return L.FeatureGroup.prototype.addLayer.call(this, layer);
+                    return this.fire("layeradd", {
+                        layer: layer
+                    });
                 },
-                _events: function(onoff) {
+                __events: function(onoff) {
                     var onoff = onoff || "on", map = this._map;
-                    map[onoff]("mousedown touchstart", this.mouseDown, this);
-                    map[onoff]("zoomstart movestart", this.zoomMoveStart, this);
+                    if (L.version.substr(0, 1) === "0") {
+                        map[onoff]("mousedown touchstart", this.mouseDown, this);
+                        map[onoff]("zoomstart movestart", this.zoomMoveStart, this);
+                    }
                     L.DomEvent[onoff](document.body, "mouseleave", this.mouseUpLeave.bind(this));
                 },
                 drawStartedEvents: function(onoff) {
@@ -17099,6 +17265,10 @@
                     var latlngs = this.getSimplified(this.tracer.getLatLngs());
                     this.stopDraw();
                     if (latlngs.length < 3) return;
+                    if (this.options.concave_polygons) {
+                        latlngs.push(latlngs[0]);
+                        latlngs = new ConcaveHull(latlngs).getLatLngs();
+                    }
                     if (this.mode === "add") {
                         this.addPolygon(latlngs, true);
                     } else if (this.mode === "subtract") {
@@ -17110,12 +17280,16 @@
                         this.removeLayer(polygon);
                     }
                 },
+                getPolygon: function(latlngs) {
+                    var polyoptions = L.extend({}, this.options.polygon);
+                    return new this.Polygon(latlngs, polyoptions);
+                },
                 addPolygon: function(latlngs, force, nomerge, noevent) {
-                    var latlngs = force ? latlngs : this.getSimplified(latlngs), polyoptions = L.extend({}, this.options.polygon);
+                    var latlngs = force ? latlngs : this.getSimplified(latlngs);
                     if (this.options.merge_polygons && !nomerge) {
-                        this.merge(latlngs, polyoptions);
+                        this.merge(latlngs);
                     } else {
-                        this.addLayer(new this.Polygon(latlngs, polyoptions), noevent);
+                        this.addLayer(this.getPolygon(latlngs), noevent);
                     }
                 },
                 subtractPolygon: function(latlngs, force) {
@@ -17144,7 +17318,7 @@
                     }
                     return latlngs;
                 },
-                merge: function(latlngs, polyoptions) {
+                merge: function(latlngs) {
                     var polys = this.getLayers(), newjson = _turf.buffer(_turf.polygon(this.getCoordsFromLatLngs(latlngs)), 0), fnc = this._tryturf.bind(this, "union"), _this = this;
                     asyncForLoop(polys, process_fn, cb);
                     function process_fn(poly) {
@@ -17173,7 +17347,7 @@
                             return;
                         }
                         _latlngs = _this.getLatLngsFromJSON(newjson);
-                        _this.addLayer(new _this.Polygon(_latlngs, polyoptions));
+                        _this.addLayer(_this.getPolygon(_latlngs));
                     }
                 },
                 subtract: function(polygon) {
@@ -17230,7 +17404,7 @@
                     }
                 },
                 resetTracer: function() {
-                    this.tracer.setLatLngs([]);
+                    this.tracer.setLatLngs([ [ 0, 0 ] ]);
                 },
                 setMapPermissions: function(method) {
                     var map = this._map, preferences = this.defaultPreferences;
@@ -17288,11 +17462,12 @@
                 return new L.FreeHandShapes(options);
             };
         }, {
-            "./async-for-loop": 9,
-            "./leaflet-touch-extend": 11,
-            "./turf": 12
+            "./async-for-loop": 10,
+            "./leaflet-touch-extend": 12,
+            "./turf": 13,
+            concavehull: 8
         } ],
-        11: [ function(_dereq_, module, exports) {
+        12: [ function(_dereq_, module, exports) {
             L.Map.mergeOptions({
                 touchExtend: true
             });
@@ -17300,7 +17475,6 @@
                 initialize: function(map) {
                     this._map = map;
                     this._container = map._container;
-                    this._pane = map._panes.overlayPane;
                 },
                 addHooks: function() {
                     L.DomEvent.on(this._container, "touchstart", this._onTouchStart, this);
@@ -17350,7 +17524,7 @@
             });
             L.Map.addInitHook("addHandler", "touchExtend", L.Map.TouchExtend);
         }, {} ],
-        12: [ function(_dereq_, module, exports) {
+        13: [ function(_dereq_, module, exports) {
             var helpers = _dereq_("@turf/helpers");
             module.exports = {
                 difference: _dereq_("@turf/difference"),
@@ -17376,12 +17550,12 @@
                 return !!a.intersects(b);
             };
         }, {
-            "@turf/buffer": 1,
-            "@turf/difference": 2,
-            "@turf/flip": 3,
-            "@turf/helpers": 4,
-            "@turf/union": 6,
-            jsts: 8
+            "@turf/buffer": 2,
+            "@turf/difference": 3,
+            "@turf/flip": 4,
+            "@turf/helpers": 5,
+            "@turf/union": 7,
+            jsts: 9
         } ]
-    }, {}, [ 10 ])(10);
+    }, {}, [ 11 ])(11);
 });
