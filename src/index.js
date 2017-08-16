@@ -3,8 +3,8 @@ var touch_extend = require('./leaflet-touch-extend'),
     asyncForLoop = require('./async-for-loop'),
     ConcaveHull = require('concavehull');
 
-L.FreeHandShapes = L.LayerGroup.extend({
-    version : "0.3.3",
+L.FreeHandShapes = L.FeatureGroup.extend({
+    version : "0.3.4",
     options : {
         polygon: {
             className: 'leaflet-free-hand-shapes',
