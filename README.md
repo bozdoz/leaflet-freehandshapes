@@ -11,7 +11,7 @@ Initially forked from and inspired by [L.FreeDraw](https://github.com/Wildhoney/
 
 This is a Leaflet plugin for adding/manipulating polygons from a Leaflet map.  It is a freehand drawer that supports mobile, canvas, and multiple instances.  Each instance adds polygons to a Leaflet FeatureGroup, optionally merging with other polygons using [TurfJS](http://turfjs.org/).  Polygons can also be subtracted by other polygons using TurfJS.
 
-[See the demo](https://bozdoz.github.io/Leaflet.FreeHandShapes/)
+[See the demo](https://bozdoz.github.io/leaflet-freehandshapes/)
 
 ![Screenshot](http://i.imgur.com/5Zis4Q4.png)
 
