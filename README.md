@@ -26,6 +26,7 @@ npm install leaflet-freehandshapes --save
 
 ```javascript
 // initialize
+require('leaflet-freehandshapes');
 var drawer = new L.FreeHandShapes();
 
 // enable drawing
