@@ -30,7 +30,7 @@ L.Map.TouchExtend = L.Handler.extend({
         x = touch.clientX - rect.left - this._container.clientLeft,
         y = touch.clientY - rect.top - this._container.clientTop,
         containerPoint = L.point(x, y),
-        layerPoint = this._map.containerPointToLayerPoint(containerPoint);
+        layerPoint = this._map.containerPointToLayerPoint(containerPoint),
         latlng = this._map.containerPointToLatLng(containerPoint);
 
     this._map.fire(type, {
@@ -52,7 +52,7 @@ L.Map.TouchExtend = L.Handler.extend({
         x = touch.clientX - rect.left - this._container.clientLeft,
         y = touch.clientY - rect.top - this._container.clientTop,
         containerPoint = L.point(x, y),
-        layerPoint = this._map.containerPointToLayerPoint(containerPoint);
+        layerPoint = this._map.containerPointToLayerPoint(containerPoint),
         latlng = this._map.containerPointToLatLng(containerPoint);
 
     this._map.fire(type, {
