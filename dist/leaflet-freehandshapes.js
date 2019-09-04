@@ -18,30 +18,32 @@
     }
 })(function() {
     var define, module, exports;
-    return function e(t, n, r) {
-        function s(o, u) {
-            if (!n[o]) {
-                if (!t[o]) {
-                    var a = typeof require == "function" && require;
-                    if (!u && a) return a(o, !0);
-                    if (i) return i(o, !0);
-                    var f = new Error("Cannot find module '" + o + "'");
-                    throw f.code = "MODULE_NOT_FOUND", f;
+    return function() {
+        function r(e, n, t) {
+            function o(i, f) {
+                if (!n[i]) {
+                    if (!e[i]) {
+                        var c = "function" == typeof require && require;
+                        if (!f && c) return c(i, !0);
+                        if (u) return u(i, !0);
+                        var a = new Error("Cannot find module '" + i + "'");
+                        throw a.code = "MODULE_NOT_FOUND", a;
+                    }
+                    var p = n[i] = {
+                        exports: {}
+                    };
+                    e[i][0].call(p.exports, function(r) {
+                        var n = e[i][1][r];
+                        return o(n || r);
+                    }, p, p.exports, r, e, n, t);
                 }
-                var l = n[o] = {
-                    exports: {}
-                };
-                t[o][0].call(l.exports, function(e) {
-                    var n = t[o][1][e];
-                    return s(n ? n : e);
-                }, l, l.exports, e, t, n, r);
+                return n[i].exports;
             }
-            return n[o].exports;
+            for (var u = "function" == typeof require && require, i = 0; i < t.length; i++) o(t[i]);
+            return o;
         }
-        var i = typeof require == "function" && require;
-        for (var o = 0; o < r.length; o++) s(r[o]);
-        return s;
-    }({
+        return r;
+    }()({
         1: [ function(_dereq_, module, exports) {
             module.exports = normalize;
             var types = {
@@ -17490,8 +17492,7 @@
                     if (!this._map._loaded) {
                         return;
                     }
-                    var type = "touchstart", touch = e.touches[0], rect = this._container.getBoundingClientRect(), x = touch.clientX - rect.left - this._container.clientLeft, y = touch.clientY - rect.top - this._container.clientTop, containerPoint = L.point(x, y), layerPoint = this._map.containerPointToLayerPoint(containerPoint);
-                    latlng = this._map.containerPointToLatLng(containerPoint);
+                    var type = "touchstart", touch = e.touches[0], rect = this._container.getBoundingClientRect(), x = touch.clientX - rect.left - this._container.clientLeft, y = touch.clientY - rect.top - this._container.clientTop, containerPoint = L.point(x, y), layerPoint = this._map.containerPointToLayerPoint(containerPoint), latlng = this._map.containerPointToLatLng(containerPoint);
                     this._map.fire(type, {
                         latlng: latlng,
                         layerPoint: layerPoint,
@@ -17503,8 +17504,7 @@
                     if (!this._map._loaded || !e.changedTouches.length) {
                         return;
                     }
-                    var type = "touchmove", touch = e.changedTouches[0], rect = this._container.getBoundingClientRect(), x = touch.clientX - rect.left - this._container.clientLeft, y = touch.clientY - rect.top - this._container.clientTop, containerPoint = L.point(x, y), layerPoint = this._map.containerPointToLayerPoint(containerPoint);
-                    latlng = this._map.containerPointToLatLng(containerPoint);
+                    var type = "touchmove", touch = e.changedTouches[0], rect = this._container.getBoundingClientRect(), x = touch.clientX - rect.left - this._container.clientLeft, y = touch.clientY - rect.top - this._container.clientTop, containerPoint = L.point(x, y), layerPoint = this._map.containerPointToLayerPoint(containerPoint), latlng = this._map.containerPointToLatLng(containerPoint);
                     this._map.fire(type, {
                         latlng: latlng,
                         layerPoint: layerPoint,
