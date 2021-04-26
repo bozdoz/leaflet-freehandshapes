@@ -115,7 +115,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         }
 
         // body events
-        L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave.bind(this));
+        L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave, this);
     },
 
     drawStartedEvents : function (onoff) {
