@@ -1,6 +1,6 @@
 {
   "name": "leaflet-freehandshapes",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Refactored Leaflet plugin for drawing freehand polygons, with support for mobile",
   "main": "dist/leaflet-freehandshapes.js",
   "files": [
