@@ -17484,9 +17484,9 @@
                     L.DomEvent.on(this._container, "touchend", this._onTouchEnd, this);
                 },
                 removeHooks: function() {
-                    L.DomEvent.off(this._container, "touchstart", this._onTouchStart, this);
-                    L.DomEvent.off(this._container, "touchmove", this._onTouchMove, this);
-                    L.DomEvent.off(this._container, "touchend", this._onTouchEnd, this);
+                    L.DomEvent.off(this._container, "touchstart", this._onTouchStart);
+                    L.DomEvent.on(this._container, "touchmove", this._onTouchMove, this);
+                    L.DomEvent.off(this._container, "touchend", this._onTouchEnd);
                 },
                 _onTouchStart: function(e) {
                     if (!this._map._loaded) {
