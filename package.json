@@ -1,6 +1,6 @@
 {
   "name": "leaflet-freehandshapes",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Refactored Leaflet plugin for drawing freehand polygons, with support for mobile",
   "main": "dist/leaflet-freehandshapes.js",
   "files": [
@@ -34,15 +34,17 @@
   "bugs": {
     "url": "https://github.com/bozdoz/Leaflet.FreeHandShapes/issues"
   },
-  "dependencies": {},
-  "devDependencies": {
+  "dependencies": {
     "@turf/turf": "^3.5.2",
+    "concavehull": "^0.1.6",
+    "jsts": "^1.3.0"
+  },
+  "devDependencies": {
     "babel-core": "^6.25.0",
     "babel-loader": "^7.1.1",
     "babel-preset-env": "^1.6.0",
     "browser-sync": "^2.16.0",
     "browserify": "^13.1.0",
-    "concavehull": "^0.1.6",
     "css-loader": "^3.5.3",
     "gulp": "^3.9.1",
     "gulp-derequire": "^2.1.0",
