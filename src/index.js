@@ -4,7 +4,7 @@ var touch_extend = require('./leaflet-touch-extend'),
     ConcaveHull = require('concavehull');
 
 L.FreeHandShapes = L.FeatureGroup.extend({
-    version : "0.3.4",
+    version : "0.3.8",
     options : {
         polygon: {
             className: 'leaflet-free-hand-shapes',
@@ -115,7 +115,7 @@ L.FreeHandShapes = L.FeatureGroup.extend({
         }
 
         // body events
-        L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave.bind(this));
+        L.DomEvent[ onoff ](document.body, 'mouseleave', this.mouseUpLeave, this);
     },
 
     drawStartedEvents : function (onoff) {
