@@ -17222,7 +17222,7 @@
                         map[onoff]("mousedown touchstart", this.mouseDown, this);
                         map[onoff]("zoomstart movestart", this.zoomMoveStart, this);
                     }
-                    L.DomEvent[onoff](document.body, "mouseleave", this.mouseUpLeave.bind(this));
+                    L.DomEvent[onoff](document.body, "mouseleave", this.mouseUpLeave, this);
                 },
                 drawStartedEvents: function(onoff) {
                     var onoff = onoff || "on", map = this._map;
@@ -17484,9 +17484,9 @@
                     L.DomEvent.on(this._container, "touchend", this._onTouchEnd, this);
                 },
                 removeHooks: function() {
-                    L.DomEvent.off(this._container, "touchstart", this._onTouchStart);
-                    L.DomEvent.on(this._container, "touchmove", this._onTouchMove, this);
-                    L.DomEvent.off(this._container, "touchend", this._onTouchEnd);
+                    L.DomEvent.off(this._container, "touchstart", this._onTouchStart, this);
+                    L.DomEvent.off(this._container, "touchmove", this._onTouchMove, this);
+                    L.DomEvent.off(this._container, "touchend", this._onTouchEnd, this);
                 },
                 _onTouchStart: function(e) {
                     if (!this._map._loaded) {
