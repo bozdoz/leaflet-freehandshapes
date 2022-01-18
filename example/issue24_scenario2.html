@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Freehand shapes prototype</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/leaflet.js"></script>
+
+    <script src="https://bozdoz.github.io/leaflet-freehandshapes/dist/leaflet-freehandshapes.js"></script>
+    <style>
+      #map {
+        width: 600px;
+        height: 400px;
+      }
+      .leaflet-control-attribution {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+
+    <h4>Leaflet freehandshapes</h4>
+
+    <div id='map'></div>
+    <button onclick="initMap()">Reinitialise</button> 
+
+    <script>
+
+      // These variables we'd expect to be different for each image viewed.
+      var imgHeight = 772;
+      var imgWidth = 1024;
+      var imgDpi = 300;
+
+      // Calculate internal vars from the configurable vars.
+      var zoomFactor = 6;
+      var imgDotsPerCm = imgDpi * 0.393701;
+      console.debug("imgDotsPerCm:", imgDotsPerCm);
+      var boundsX = imgHeight / imgDotsPerCm;
+      var boundsY = imgWidth / imgDotsPerCm;
+      console.debug("bounds: " + boundsX + ", " + boundsY);
+      var map;
+      function initMap() {
+        if (map !== undefined) {
+          map.off();
+          map.remove();
+        }
+        map = L.map('map', {
+          crs: L.CRS.Simple,
+          minZoom: -100,
+          editable: true
+        });
+        var yx = L.latLng;
+        var xy = function (x, y) {
+          if (L.Util.isArray(x)) {    // When doing xy([x, y]);
+            return yx(x[1], x[0]);
+          }
+          return yx(y, x); // When doing xy(x, y);
+        };
+        var bounds = [xy(0, 0), xy(boundsX, boundsY)];
+        var image = L.imageOverlay('https://www.gstatic.com/webp/gallery/5.jpg', bounds).addTo(map);
+        // Where to center the map.
+        map.setView([3, 3], zoomFactor);
+        // The default leaflet scale.
+        L.control.scale({
+          imperial: false
+        }).addTo(map);
+        var drawer = new L.FreeHandShapes({
+          polygon: {
+            className: 'leaflet-free-hand-shapes',
+            smoothFactor: 1,
+            fillOpacity: 0,
+            noClip: true,
+          },
+        });
+        drawer.setMode('view');
+        var group = new L.LayerGroup();
+        group.addLayer(drawer);
+        group.addTo(map);
+        var defaultMapCursor = map._container.style.cursor;
+        L.NewFreehandControl = L.Control.extend({
+          options: {
+            position: 'topleft',
+          },
+          onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'leaflet-control leaflet-bar');
+            var link = L.DomUtil.create('a', '', container);
+            link.href = '#';
+            link.title = 'Create a new freehand shape';
+            link.innerHTML = '╮';
+            var _self = this;
+            L.DomEvent
+              .on(link, 'click', L.DomEvent.stop)
+              .on(link, 'click', function () {
+                map.fire("controlSelected", {control: _self});
+                map._container.style.cursor = 'crosshair';
+                drawer.setMode('add');
+              });
+            return container;
+          }
+        });
+        var fhControl = new L.NewFreehandControl();
+        map.on('controlSelected', function (data) {
+          console.log("Control selected ", data.control, data.control === fhControl);
+          if (data.control !== fhControl) {
+            drawer.setMode('view');
+          }
+        });
+        map.addControl(fhControl);
+        drawer.on('layeradd', function (data) {
+          console.log('layeradd');
+          var shape = data.layer;
+          var geojson = shape.toGeoJSON();
+          console.log('GeoJSON ', geojson);
+          drawer.setMode('view');
+          map._container.style.cursor = defaultMapCursor;
+        });
+      }
+      initMap();
+    </script>
+
+  </body>
+</html>
