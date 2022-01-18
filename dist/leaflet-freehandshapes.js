@@ -17138,7 +17138,7 @@
         11: [ function(_dereq_, module, exports) {
             var touch_extend = _dereq_("./leaflet-touch-extend"), _turf = _dereq_("./turf"), asyncForLoop = _dereq_("./async-for-loop"), ConcaveHull = _dereq_("concavehull");
             L.FreeHandShapes = L.FeatureGroup.extend({
-                version: "0.3.9",
+                version: "0.3.10",
                 options: {
                     polygon: {
                         className: "leaflet-free-hand-shapes",
@@ -17484,9 +17484,9 @@
                     L.DomEvent.on(this._container, "touchend", this._onTouchEnd, this);
                 },
                 removeHooks: function() {
-                    L.DomEvent.off(this._container, "touchstart", this._onTouchStart);
-                    L.DomEvent.on(this._container, "touchmove", this._onTouchMove, this);
-                    L.DomEvent.off(this._container, "touchend", this._onTouchEnd);
+                    L.DomEvent.off(this._container, "touchstart", this._onTouchStart, this);
+                    L.DomEvent.off(this._container, "touchmove", this._onTouchMove, this);
+                    L.DomEvent.off(this._container, "touchend", this._onTouchEnd, this);
                 },
                 _onTouchStart: function(e) {
                     if (!this._map._loaded) {

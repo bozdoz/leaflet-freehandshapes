@@ -4,6 +4,7 @@ Leaflet.FreeHandShapes
 ![MIT License](http://img.shields.io/badge/license-MIT-lightgrey.svg)
 &nbsp;
 ![Leaflet](http://img.shields.io/badge/leaflet-1.2.0-green.svg)
+![NPM](https://img.shields.io/npm/v/leaflet-freehandshapes/latest?label=npm)
 
 Initially forked from and inspired by [L.FreeDraw](https://github.com/Wildhoney/Leaflet.FreeDraw)
 
