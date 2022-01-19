@@ -13,7 +13,7 @@ git push
 
 # update pages
 git checkout gh-pages
-git merge master
+git merge master --commit --no-edit
 git push
 git checkout master
 
